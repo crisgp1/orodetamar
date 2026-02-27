@@ -54,7 +54,7 @@ export type ZonaUbicacion = 'TURISTICA' | 'POPULAR' | 'COMERCIAL'
 
 export type PrioridadUbicacion = 'ALTA' | 'NORMAL'
 
-export type RolUsuario = 'ADMIN' | 'APOYO'
+export type RolUsuario = 'ADMIN' | 'APOYO' | 'CLIENTE'
 
 export type UnidadMedida = 'KG' | 'G' | 'UNIDAD' | 'LITRO' | 'ML'
 
