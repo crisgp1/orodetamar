@@ -1,5 +1,5 @@
-import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { ensureProfile } from '@/lib/auth'
 
 export const metadata = { title: 'Oro de Tamar — Punto de Venta' }
 
@@ -8,8 +8,13 @@ export default async function PosLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { userId } = await auth()
-  if (!userId) redirect('/')
+  const profile = await ensureProfile()
+  if (!profile) redirect('/')
+
+  // Solo ADMIN y APOYO pueden usar el POS
+  if (profile.rol !== 'ADMIN' && profile.rol !== 'APOYO') {
+    redirect('/')
+  }
 
   return (
     <div className="min-h-dvh bg-background">

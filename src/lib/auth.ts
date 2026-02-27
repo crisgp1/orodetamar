@@ -21,11 +21,14 @@ export async function getRol(): Promise<{ userId: string; rol: Rol } | null> {
 
 /**
  * Sync-on-demand: si el perfil no existe en Supabase, lo crea.
- * Útil como fallback cuando el webhook de Clerk no llega (ej. desarrollo local).
+ * Usa Clerk publicMetadata como fuente de verdad para el rol.
  */
 export async function ensureProfile() {
   const { userId, sessionClaims } = await auth()
   if (!userId) return null
+
+  // Rol autoritativo desde Clerk session claims
+  const clerkRol = (sessionClaims?.metadata as { rol?: Rol } | undefined)?.rol
 
   const supabase = createServerSupabase()
 
@@ -37,6 +40,14 @@ export async function ensureProfile() {
     .single()
 
   if (existing) {
+    // Si Clerk tiene un rol diferente (ej. admin promovió vía dashboard), sincronizar
+    if (clerkRol && clerkRol !== existing.rol) {
+      await supabase
+        .from('perfiles')
+        .update({ rol: clerkRol })
+        .eq('clerk_id', userId)
+      return { userId, rol: clerkRol }
+    }
     return { userId, rol: existing.rol as Rol }
   }
 
@@ -47,7 +58,7 @@ export async function ensureProfile() {
   const nombre =
     `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Usuario'
   const email = user.emailAddresses[0]?.emailAddress ?? ''
-  const rol: Rol = 'CLIENTE'
+  const rol: Rol = clerkRol ?? 'CLIENTE'
 
   const { error } = await supabase.from('perfiles').insert({
     clerk_id: userId,
@@ -67,13 +78,16 @@ export async function ensureProfile() {
         .single()
       if (retry) return { userId, rol: retry.rol as Rol }
     }
+    // Fallback: confiar en el rol de Clerk
     return { userId, rol }
   }
 
-  // Sincronizar metadata en Clerk
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: { rol },
-  })
+  // Sincronizar metadata en Clerk si no tenía rol
+  if (!clerkRol) {
+    await client.users.updateUserMetadata(userId, {
+      publicMetadata: { rol },
+    })
+  }
 
   return { userId, rol }
 }
