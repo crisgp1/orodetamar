@@ -1,5 +1,5 @@
-import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { ensureProfile } from '@/lib/auth'
 import { AdminShell } from '@/components/shared/admin-shell'
 
 export default async function AdminLayout({
@@ -7,9 +7,14 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { userId } = await auth()
+  const profile = await ensureProfile()
 
-  if (!userId) {
+  if (!profile) {
+    redirect('/')
+  }
+
+  // Solo ADMIN y APOYO pueden acceder al panel
+  if (profile.rol !== 'ADMIN' && profile.rol !== 'APOYO') {
     redirect('/')
   }
 

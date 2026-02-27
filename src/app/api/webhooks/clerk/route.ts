@@ -50,16 +50,21 @@ export async function POST(req: Request) {
       `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim() || 'Usuario'
     const email = evt.data.email_addresses[0]?.email_address
 
-    await supabase.from('perfiles').insert({
+    const { error: insertError } = await supabase.from('perfiles').insert({
       clerk_id: evt.data.id,
       nombre,
       email,
-      rol: 'APOYO',
+      rol: 'CLIENTE',
     })
+
+    if (insertError) {
+      console.error('[webhook] Error insertando perfil:', insertError)
+      return Response.json({ error: insertError.message }, { status: 500 })
+    }
 
     const client = await clerkClient()
     await client.users.updateUserMetadata(evt.data.id, {
-      publicMetadata: { rol: 'APOYO' },
+      publicMetadata: { rol: 'CLIENTE' },
     })
   }
 

@@ -97,7 +97,8 @@ CREATE TYPE prioridad_ubicacion AS ENUM (
 
 CREATE TYPE rol_usuario AS ENUM (
   'ADMIN',        -- Acceso total (dueño)
-  'APOYO'         -- Acceso limitado (familiar que ayuda)
+  'APOYO',        -- Acceso limitado (familiar que ayuda)
+  'CLIENTE'       -- Mínimo privilegio (usuario que se registra)
 );
 
 
@@ -114,7 +115,7 @@ CREATE TABLE public.perfiles (
   clerk_id TEXT NOT NULL UNIQUE,
   nombre TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
-  rol rol_usuario NOT NULL DEFAULT 'APOYO',
+  rol rol_usuario NOT NULL DEFAULT 'CLIENTE',
   activo BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

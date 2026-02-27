@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
+import { requireStaff } from '@/lib/auth'
 import {
   crearConsignacionSchema,
   liquidarConsignacionSchema,
@@ -24,6 +25,7 @@ function revalidar(consignacionId?: number) {
 // ── Crear consignacion ──────────────────────────────────────────────
 
 export async function crearConsignacion(data: CrearConsignacionInput) {
+  await requireStaff()
   const parsed = crearConsignacionSchema.safeParse(data)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
@@ -102,6 +104,7 @@ export async function crearConsignacion(data: CrearConsignacionInput) {
 // ── Liquidar consignacion ───────────────────────────────────────────
 
 export async function liquidarConsignacion(data: LiquidarConsignacionInput) {
+  await requireStaff()
   const parsed = liquidarConsignacionSchema.safeParse(data)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
@@ -216,6 +219,7 @@ export async function liquidarConsignacion(data: LiquidarConsignacionInput) {
 // ── Registrar pago ──────────────────────────────────────────────────
 
 export async function registrarPagoConsignacion(data: RegistrarPagoInput) {
+  await requireStaff()
   const parsed = registrarPagoSchema.safeParse(data)
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
@@ -273,6 +277,7 @@ export async function registrarPagoConsignacion(data: RegistrarPagoInput) {
 // ── Cancelar consignacion ───────────────────────────────────────────
 
 export async function cancelarConsignacion(consignacion_id: number) {
+  await requireStaff()
   const supabase = createServerSupabase()
 
   // Verificar estado

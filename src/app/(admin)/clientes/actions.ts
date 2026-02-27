@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerSupabase } from '@/lib/supabase/server'
+import { requireStaff } from '@/lib/auth'
 import {
   crearClienteSchema,
   actualizarClienteSchema,
@@ -16,6 +17,7 @@ function revalidar() {
 }
 
 export async function crearCliente(data: CrearClienteInput) {
+  await requireStaff()
   const parsed = crearClienteSchema.safeParse(data)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
@@ -41,6 +43,7 @@ export async function crearCliente(data: CrearClienteInput) {
 }
 
 export async function actualizarCliente(data: ActualizarClienteInput) {
+  await requireStaff()
   const parsed = actualizarClienteSchema.safeParse(data)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
@@ -70,6 +73,7 @@ export async function actualizarCliente(data: ActualizarClienteInput) {
 }
 
 export async function desactivarCliente(id: number) {
+  await requireStaff()
   const supabase = createServerSupabase()
   const { error } = await supabase
     .from('clientes')
