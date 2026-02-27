@@ -1,4 +1,3 @@
-import { ClerkProvider } from '@clerk/nextjs'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { AdminShell } from '@/components/shared/admin-shell'
@@ -11,12 +10,8 @@ export default async function AdminLayout({
   const { userId } = await auth()
 
   if (!userId) {
-    redirect('/sign-in')
+    redirect('/')
   }
 
-  return (
-    <ClerkProvider>
-      <AdminShell>{children}</AdminShell>
-    </ClerkProvider>
-  )
+  return <AdminShell>{children}</AdminShell>
 }

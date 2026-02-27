@@ -9,7 +9,9 @@ import {
   Receipt,
   ArrowUp,
   ArrowDown,
+  House,
 } from '@phosphor-icons/react/dist/ssr'
+import Link from 'next/link'
 import { createServerSupabase } from '@/lib/supabase/server'
 
 function formatPeso(n: number) {
@@ -144,7 +146,16 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold">Dashboard</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
+        >
+          <House size={18} weight="regular" />
+          Ir a la tienda
+        </Link>
+      </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {cards.map((card) => (
           <div

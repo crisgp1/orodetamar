@@ -1,6 +1,6 @@
 export const es = {
   locale: 'es' as string,
-  nav: { escribenos: 'Escríbenos' },
+  nav: { escribenos: 'Escríbenos', iniciarSesion: 'Iniciar sesión', irAlPortal: 'Ir al portal' },
   hero: {
     brand: 'O R O \u00A0 D E \u00A0 T A M A R',
     est: 'EST. 2024',

@@ -1,4 +1,3 @@
-import { ClerkProvider } from '@clerk/nextjs'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 
@@ -10,13 +9,11 @@ export default async function PosLayout({
   children: React.ReactNode
 }) {
   const { userId } = await auth()
-  if (!userId) redirect('/sign-in')
+  if (!userId) redirect('/')
 
   return (
-    <ClerkProvider>
-      <div className="min-h-dvh bg-background">
-        {children}
-      </div>
-    </ClerkProvider>
+    <div className="min-h-dvh bg-background">
+      {children}
+    </div>
   )
 }

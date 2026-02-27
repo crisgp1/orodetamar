@@ -1,4 +1,3 @@
-import { ClerkProvider } from '@clerk/nextjs'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 
@@ -8,7 +7,7 @@ export default async function SelectorLayout({
   children: React.ReactNode
 }) {
   const { userId } = await auth()
-  if (!userId) redirect('/sign-in')
+  if (!userId) redirect('/')
 
-  return <ClerkProvider>{children}</ClerkProvider>
+  return <>{children}</>
 }

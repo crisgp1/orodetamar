@@ -73,7 +73,7 @@ export function ProductoCard({
       {cantidadEnCarrito === 0 && (
         <button
           onClick={onAgregar}
-          className="flex h-9 w-full translate-y-full items-center justify-center bg-foreground text-[10px] font-medium tracking-[0.15em] uppercase text-background transition-transform duration-300 ease-out md:group-hover:translate-y-0"
+          className="flex h-9 w-full items-center justify-center bg-foreground text-[10px] font-medium tracking-[0.15em] uppercase text-background transition-transform duration-300 ease-out md:translate-y-full md:group-hover:translate-y-0"
         >
           {t.catalogo.agregar}
         </button>

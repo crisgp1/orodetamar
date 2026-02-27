@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { WhatsappLogo, ShoppingBag } from '@phosphor-icons/react'
+import { WhatsappLogo, ShoppingBag, UserCircle, SignIn } from '@phosphor-icons/react'
+import {
+  SignInButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from '@clerk/nextjs'
 import { useDictionary } from '../_dictionaries/context'
 
 const langs = [
@@ -80,8 +86,31 @@ export function Navbar({
           Oro de Tamar
         </Link>
 
-        {/* Right: cart */}
+        {/* Right: auth + cart */}
         <div className="flex flex-1 items-center justify-end gap-3">
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="flex items-center gap-1.5 text-[11px] tracking-[0.05em] text-foreground/60 transition-colors duration-300 hover:text-foreground">
+                <UserCircle size={18} weight="regular" />
+                <span className="hidden sm:inline">{t.nav.iniciarSesion}</span>
+              </button>
+            </SignInButton>
+          </SignedOut>
+          <SignedIn>
+            <Link
+              href="/seleccionar-rol"
+              className="flex items-center gap-1.5 rounded-full bg-foreground/10 px-3 py-1 text-[11px] tracking-[0.05em] text-foreground/80 transition-colors duration-300 hover:bg-foreground/20 hover:text-foreground"
+            >
+              <SignIn size={14} weight="bold" />
+              <span className="hidden sm:inline">{t.nav.irAlPortal}</span>
+            </Link>
+            <UserButton
+              afterSignOutUrl="/"
+              appearance={{
+                elements: { userButtonAvatarBox: 'w-7 h-7' },
+              }}
+            />
+          </SignedIn>
           <button
             onClick={onAbrirCarrito}
             className="relative flex items-center gap-1.5 text-foreground/70 transition-colors duration-300 hover:text-foreground"

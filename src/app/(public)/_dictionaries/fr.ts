@@ -2,7 +2,7 @@ import type { Dictionary } from './es'
 
 export const fr: Dictionary = {
   locale: 'fr',
-  nav: { escribenos: 'Contactez-nous' },
+  nav: { escribenos: 'Contactez-nous', iniciarSesion: 'Se connecter', irAlPortal: 'Aller au portail' },
   hero: {
     brand: 'O R O \u00A0 D E \u00A0 T A M A R',
     est: 'EST. 2024',
