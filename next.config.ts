@@ -1,7 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ['@sparticuz/chromium-min', 'puppeteer-core'],
+  async redirects() {
+    return [
+      {
+        source: '/catalogo',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/catalogo/:path*',
+        destination: '/',
+        permanent: true,
+      },
+    ]
+  },
 };
 
 export default nextConfig;
