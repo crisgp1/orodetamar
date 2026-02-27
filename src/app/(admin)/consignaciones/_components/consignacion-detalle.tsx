@@ -140,7 +140,7 @@ export function ConsignacionDetalleView({
   const saldoPendiente =
     consignacion.total_vendido - consignacion.total_cobrado
   const diasTranscurridos = Math.floor(
-    (Date.now() - new Date(consignacion.fecha_entrega + 'T12:00:00').getTime()) /
+    (new Date().getTime() - new Date(consignacion.fecha_entrega + 'T12:00:00').getTime()) /
       86400000
   )
 

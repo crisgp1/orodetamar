@@ -20,10 +20,13 @@ export type CanalOrigen =
   | 'FACEBOOK'
   | 'WHATSAPP'
   | 'VISITA_DIRECTA'
+  | 'SITIO_WEB'
   | 'OTRO'
 
 export type EstadoPedido =
+  | 'PENDIENTE_PAGO'
   | 'RECIBIDO'
+  | 'PAGO_CONFIRMADO'
   | 'EN_PREPARACION'
   | 'LISTO'
   | 'EN_RUTA'
@@ -48,7 +51,7 @@ export type TipoMovimiento =
 
 export type DestinoRetorno = 'INVENTARIO' | 'REPROCESAMIENTO_PULPA'
 
-export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA'
+export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TRANSFERENCIA_SPEI'
 
 export type ZonaUbicacion = 'TURISTICA' | 'POPULAR' | 'COMERCIAL'
 
@@ -77,12 +80,17 @@ export type TipoGasto =
 // conditionals when exported across files, resolving to `never`.
 // ============================================================
 
+export type EstadoComprobante = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
+
+export type OrigenPedido = 'WEB' | 'WHATSAPP' | 'PRESENCIAL' | 'TELEFONO'
+
 export type Perfil = {
   id: number
   clerk_id: string
   nombre: string
   email: string
   rol: RolUsuario
+  cliente_id: number | null
   activo: boolean
   created_at: string
   updated_at: string
@@ -115,6 +123,14 @@ export type Producto = {
   updated_at: string
 }
 
+export type ProductoImagen = {
+  id: number
+  producto_id: number
+  imagen_url: string
+  posicion: number
+  created_at: string
+}
+
 export type Cliente = {
   id: number
   nombre: string
@@ -137,18 +153,38 @@ export type Cliente = {
 export type Pedido = {
   id: number
   cliente_id: number
+  perfil_id: number | null
   fecha_pedido: string
   fecha_entrega_min: string | null
   fecha_entrega_max: string | null
   fecha_entrega_real: string | null
   estado: EstadoPedido
+  origen: string | null
   canal_venta: string | null
+  direccion_entrega: string | null
+  telefono_contacto: string | null
+  requiere_anticipo: boolean
+  monto_anticipo: number | null
   descuento_porcentaje: number | null
   subtotal: number | null
   total: number | null
+  tiene_delay: boolean
+  delay_motivo: string | null
+  fecha_entrega_estimada: string | null
   notas: string | null
   created_at: string
   updated_at: string
+}
+
+export type PedidoComprobante = {
+  id: number
+  pedido_id: number
+  imagen_url: string
+  monto_declarado: number | null
+  estado: EstadoComprobante
+  notas_admin: string | null
+  created_at: string
+  revisado_at: string | null
 }
 
 export type PedidoDetalle = {
@@ -511,6 +547,7 @@ export type Database = {
           nombre: string
           email: string
           rol?: RolUsuario
+          cliente_id?: number | null
           activo?: boolean
         }
         Update: {
@@ -518,9 +555,18 @@ export type Database = {
           nombre?: string
           email?: string
           rol?: RolUsuario
+          cliente_id?: number | null
           activo?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'perfiles_cliente_id_fkey'
+            columns: ['cliente_id']
+            isOneToOne: false
+            referencedRelation: 'clientes'
+            referencedColumns: ['id']
+          },
+        ]
       }
       categorias_producto: {
         Row: CategoriaProducto
@@ -578,6 +624,28 @@ export type Database = {
           },
         ]
       }
+      producto_imagenes: {
+        Row: ProductoImagen
+        Insert: {
+          producto_id: number
+          imagen_url: string
+          posicion?: number
+        }
+        Update: {
+          producto_id?: number
+          imagen_url?: string
+          posicion?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'producto_imagenes_producto_id_fkey'
+            columns: ['producto_id']
+            isOneToOne: false
+            referencedRelation: 'productos'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       clientes: {
         Row: Cliente
         Insert: {
@@ -616,26 +684,44 @@ export type Database = {
         Row: Pedido
         Insert: {
           cliente_id: number
+          perfil_id?: number | null
           estado?: EstadoPedido
+          origen?: string
           fecha_entrega_min?: string | null
           fecha_entrega_max?: string | null
           fecha_entrega_real?: string | null
           canal_venta?: string | null
+          direccion_entrega?: string | null
+          telefono_contacto?: string | null
+          requiere_anticipo?: boolean
+          monto_anticipo?: number | null
           descuento_porcentaje?: number | null
           subtotal?: number | null
           total?: number | null
+          tiene_delay?: boolean
+          delay_motivo?: string | null
+          fecha_entrega_estimada?: string | null
           notas?: string | null
         }
         Update: {
           cliente_id?: number
+          perfil_id?: number | null
           estado?: EstadoPedido
+          origen?: string
           fecha_entrega_min?: string | null
           fecha_entrega_max?: string | null
           fecha_entrega_real?: string | null
           canal_venta?: string | null
+          direccion_entrega?: string | null
+          telefono_contacto?: string | null
+          requiere_anticipo?: boolean
+          monto_anticipo?: number | null
           descuento_porcentaje?: number | null
           subtotal?: number | null
           total?: number | null
+          tiene_delay?: boolean
+          delay_motivo?: string | null
+          fecha_entrega_estimada?: string | null
           notas?: string | null
         }
         Relationships: [
@@ -698,6 +784,33 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'pedido_pagos_pedido_id_fkey'
+            columns: ['pedido_id']
+            isOneToOne: false
+            referencedRelation: 'pedidos'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      pedido_comprobantes: {
+        Row: PedidoComprobante
+        Insert: {
+          pedido_id: number
+          imagen_url: string
+          monto_declarado?: number | null
+          estado?: EstadoComprobante
+          notas_admin?: string | null
+        }
+        Update: {
+          pedido_id?: number
+          imagen_url?: string
+          monto_declarado?: number | null
+          estado?: EstadoComprobante
+          notas_admin?: string | null
+          revisado_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'pedido_comprobantes_pedido_id_fkey'
             columns: ['pedido_id']
             isOneToOne: false
             referencedRelation: 'pedidos'
@@ -1138,7 +1251,9 @@ export type Database = {
         Relationships: []
       }
     }
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Functions: {}
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Enums: {}
   }
 }

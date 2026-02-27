@@ -1,7 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { Plus, Minus, Leaf, Drop, Cookie, Package } from '@phosphor-icons/react'
 import { useDictionary } from '../_dictionaries/context'
+import { ImageLightbox } from './image-lightbox'
 
 type Producto = {
   id: number
@@ -29,35 +31,45 @@ function getIcon(nombre: string, esSnack: boolean) {
 
 export function ProductoCard({
   producto,
+  imagenes,
   cantidadEnCarrito,
   onAgregar,
   onCambiarCantidad,
 }: {
   producto: Producto
+  imagenes?: string[]
   cantidadEnCarrito: number
   onAgregar: () => void
   onCambiarCantidad: (delta: number) => void
 }) {
   const t = useDictionary()
   const icon = getIcon(producto.nombre, producto.es_snack)
+  const gallery = imagenes?.length ? imagenes : producto.imagen_url ? [producto.imagen_url] : []
+  const coverImage = gallery[0] ?? producto.imagen_url
 
   return (
     <div className="group overflow-hidden bg-muted">
-      {/* Image */}
-      <div className="aspect-[3/4] overflow-hidden">
-        {producto.imagen_url ? (
-          <img
-            src={producto.imagen_url}
-            alt={producto.nombre}
-            className="h-full w-full object-cover transition-transform duration-700 md:group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">{icon}</div>
-        )}
-      </div>
+      {/* Image — click to expand if has image, otherwise link to product page */}
+      {coverImage ? (
+        <ImageLightbox images={gallery} alt={producto.nombre}>
+          <div className="aspect-[3/4] overflow-hidden">
+            <img
+              src={coverImage}
+              alt={producto.nombre}
+              className="h-full w-full object-cover transition-transform duration-700 md:group-hover:scale-105"
+            />
+          </div>
+        </ImageLightbox>
+      ) : (
+        <Link href={`/producto/${producto.id}`} className="block">
+          <div className="aspect-[3/4] overflow-hidden">
+            <div className="flex h-full items-center justify-center">{icon}</div>
+          </div>
+        </Link>
+      )}
 
-      {/* Product info — always visible, solid bg-muted */}
-      <div className="relative px-3 py-4 text-center">
+      {/* Product info — links to product page */}
+      <Link href={`/producto/${producto.id}`} className="block relative px-3 py-4 text-center">
         <p className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground md:text-[10px]">
           {producto.presentacion}
         </p>
@@ -67,7 +79,7 @@ export function ProductoCard({
         <p className="tabular-nums mt-1 text-xs text-muted-foreground md:text-sm">
           {formatPrecio(producto.precio_venta)}
         </p>
-      </div>
+      </Link>
 
       {/* Small "Agregar" bar — slides up from bottom on hover, ~10-15% of card */}
       {cantidadEnCarrito === 0 && (

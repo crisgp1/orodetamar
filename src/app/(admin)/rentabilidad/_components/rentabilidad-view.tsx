@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { TrendUp } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
@@ -76,8 +75,7 @@ export function RentabilidadView({
   hasta: string
 }) {
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  const mounted = true
 
   // Calculos
   const resumen = calcularRentabilidad(ingresos, gastos, comprasMP)

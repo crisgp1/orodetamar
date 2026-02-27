@@ -79,38 +79,28 @@ export function PosView({
   cierres: VCierresStand[]
   ventasPorProducto: Record<number, VentaResumenProducto>
 }) {
-  const [ubicacionId, setUbicacionId] = useState<number | null>(null)
+  const initialConfig = loadConfig()
+  const initialUbicacionId =
+    initialConfig.ubicacion_id &&
+    ubicaciones.some((u) => u.id === initialConfig.ubicacion_id)
+      ? initialConfig.ubicacion_id
+      : ubicaciones.length === 1
+        ? ubicaciones[0].id
+        : null
+  const [ubicacionId, setUbicacionId] = useState<number | null>(initialUbicacionId)
   const [metodoPago, setMetodoPago] = useState<'EFECTIVO' | 'TRANSFERENCIA'>(
-    'EFECTIVO'
+    initialConfig.metodo_pago
   )
-  const [hydrated, setHydrated] = useState(false)
-  const [stockBannerDismissed, setStockBannerDismissed] = useState(true)
-
-  useEffect(() => {
-    const config = loadConfig()
-    if (
-      config.ubicacion_id &&
-      ubicaciones.some((u) => u.id === config.ubicacion_id)
-    ) {
-      setUbicacionId(config.ubicacion_id)
-    } else if (ubicaciones.length === 1) {
-      setUbicacionId(ubicaciones[0].id)
-    }
-    setMetodoPago(config.metodo_pago)
-    setHydrated(true)
-
-    // Check stock banner dismiss for today
+  const [stockBannerDismissed, setStockBannerDismissed] = useState(() => {
+    if (typeof window === 'undefined') return true
     const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
     const dismissKey = `oro-pos-stock-banner-${hoy}`
-    if (!localStorage.getItem(dismissKey)) {
-      setStockBannerDismissed(false)
-    }
-  }, [ubicaciones])
+    return Boolean(localStorage.getItem(dismissKey))
+  })
 
   useEffect(() => {
-    if (!hydrated) return
     saveConfig({ ubicacion_id: ubicacionId, metodo_pago: metodoPago })
-  }, [ubicacionId, metodoPago, hydrated])
+  }, [ubicacionId, metodoPago])
 
   const noUbicacion = ubicacionId === null
   const ubicacionNombre =

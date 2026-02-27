@@ -69,14 +69,39 @@ export async function ensureProfile() {
 
   if (error) {
     console.error('[ensureProfile] Error creando perfil:', error)
-    // Si falla por duplicado (race condition con webhook), intentar leer de nuevo
+    // Duplicado — puede ser race condition (mismo clerk_id) o cambio de entorno (mismo email, distinto clerk_id)
     if (error.code === '23505') {
-      const { data: retry } = await supabase
+      // 1. Race condition: mismo clerk_id ya insertado por webhook → leer y retornar
+      const { data: byClerk } = await supabase
         .from('perfiles')
         .select('id, rol')
         .eq('clerk_id', userId)
         .single()
-      if (retry) return { userId, rol: retry.rol as Rol }
+      if (byClerk) return { userId, rol: byClerk.rol as Rol }
+
+      // 2. Cambio de entorno (dev↔prod): mismo email verificado, distinto clerk_id
+      //    Solo permitir si Clerk confirma que el email está verificado
+      const emailObj = user.emailAddresses.find(
+        (e) => e.emailAddress === email
+      )
+      const emailVerificado =
+        emailObj?.verification?.status === 'verified'
+
+      if (emailVerificado) {
+        const { data: byEmail } = await supabase
+          .from('perfiles')
+          .select('id, rol')
+          .eq('email', email)
+          .single()
+        if (byEmail) {
+          // Solo actualizar clerk_id y nombre — MANTENER el rol existente (no escalar)
+          await supabase
+            .from('perfiles')
+            .update({ clerk_id: userId, nombre })
+            .eq('id', byEmail.id)
+          return { userId, rol: byEmail.rol as Rol }
+        }
+      }
     }
     // Fallback: confiar en el rol de Clerk
     return { userId, rol }

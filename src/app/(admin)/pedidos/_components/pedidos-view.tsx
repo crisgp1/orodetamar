@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Minus, X, Eye, Check } from '@phosphor-icons/react'
+import { Plus, Minus, X, Eye, Check, WarningCircle } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -44,6 +44,9 @@ type PedidoRow = {
   cliente_id: number
   estado: EstadoPedido
   fecha_entrega_min: string | null
+  fecha_entrega_estimada: string | null
+  tiene_delay: boolean
+  delay_motivo: string | null
   subtotal: number | null
   total: number | null
   notas: string | null
@@ -89,7 +92,12 @@ type LineaFilled = {
 const TIPOS_MAYOREO: TipoCliente[] = ['MAYORISTA', 'RESTAURANTE', 'ABARROTES', 'MERCADO']
 
 const estadoConfig: Record<string, { label: string; color: string }> = {
+  PENDIENTE_PAGO: { label: 'Pendiente de pago', color: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400' },
   RECIBIDO: { label: 'Pendiente', color: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+  PAGO_CONFIRMADO: { label: 'Pago confirmado', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+  EN_PREPARACION: { label: 'En preparacion', color: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400' },
+  LISTO: { label: 'Listo', color: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400' },
+  EN_RUTA: { label: 'En ruta', color: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400' },
   ENTREGADO: { label: 'Entregado', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
   CANCELADO: { label: 'Cancelado', color: 'bg-gray-100 text-gray-500 dark:bg-gray-900 dark:text-gray-400' },
 }
@@ -130,7 +138,7 @@ function cobroBadge(pedido: PedidoRow) {
 // Main view
 // ────────────────────────────────────────────────────────────────
 
-type TabFilter = 'pendientes' | 'entregados' | 'todos'
+type TabFilter = 'nuevos' | 'pendientes' | 'en_proceso' | 'entregados' | 'todos'
 
 export function PedidosView({
   pedidos,
@@ -142,31 +150,47 @@ export function PedidosView({
   productos: ProductoOption[]
 }) {
   const router = useRouter()
-  const [tab, setTab] = useState<TabFilter>('pendientes')
+
+  const nuevos = pedidos.filter((p) => p.estado === 'PENDIENTE_PAGO').length
+  const pendientesCount = pedidos.filter((p) => p.estado === 'RECIBIDO' || p.estado === 'PAGO_CONFIRMADO').length
+  const enProceso = pedidos.filter((p) => ['EN_PREPARACION', 'LISTO', 'EN_RUTA'].includes(p.estado)).length
+  const entregados = pedidos.filter((p) => p.estado === 'ENTREGADO').length
+
+  const defaultTab: TabFilter = nuevos > 0 ? 'nuevos' : 'pendientes'
+  const [tab, setTab] = useState<TabFilter>(defaultTab)
 
   const filtered = pedidos.filter((p) => {
-    if (tab === 'pendientes') return p.estado === 'RECIBIDO'
+    if (tab === 'nuevos') return p.estado === 'PENDIENTE_PAGO'
+    if (tab === 'pendientes') return p.estado === 'RECIBIDO' || p.estado === 'PAGO_CONFIRMADO'
+    if (tab === 'en_proceso') return ['EN_PREPARACION', 'LISTO', 'EN_RUTA'].includes(p.estado)
     if (tab === 'entregados') return p.estado === 'ENTREGADO'
     return true
   })
 
-  const pendientes = pedidos.filter((p) => p.estado === 'RECIBIDO').length
-  const entregados = pedidos.filter((p) => p.estado === 'ENTREGADO').length
+  const emptyMessages: Record<TabFilter, string> = {
+    nuevos: 'Sin pedidos nuevos de la tienda.',
+    pendientes: 'Sin pedidos pendientes.',
+    en_proceso: 'Sin pedidos en proceso.',
+    entregados: 'Sin pedidos entregados.',
+    todos: 'Sin pedidos.',
+  }
 
   return (
     <div className="space-y-4">
       {/* Header: filtros + nuevo */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-lg border border-border p-0.5">
+        <div className="flex gap-1 rounded-lg border border-border p-0.5 overflow-x-auto">
           {([
-            ['pendientes', `Pendientes (${pendientes})`],
+            ['nuevos', `Nuevos (${nuevos})`],
+            ['pendientes', `Pendientes (${pendientesCount})`],
+            ['en_proceso', `En proceso (${enProceso})`],
             ['entregados', `Entregados (${entregados})`],
             ['todos', `Todos (${pedidos.length})`],
           ] as [TabFilter, string][]).map(([value, label]) => (
             <button
               key={value}
               onClick={() => setTab(value)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 tab === value
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:text-foreground'
@@ -182,7 +206,7 @@ export function PedidosView({
       {/* Lista */}
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          {tab === 'pendientes' ? 'Sin pedidos pendientes.' : 'Sin pedidos.'}
+          {emptyMessages[tab]}
         </p>
       ) : (
         <>
@@ -236,11 +260,28 @@ export function PedidosView({
                         {p.fecha_entrega_min ? formatFechaCorta(p.fecha_entrega_min) : '—'}
                       </td>
                       <td className="py-2.5 pr-3">
-                        <Badge className={`text-[11px] ${estado.color}`}>{estado.label}</Badge>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Badge className={`text-[11px] ${estado.color}`}>{estado.label}</Badge>
+                          {p.tiene_delay && (
+                            <div className="group relative">
+                              <Badge className="text-[10px] cursor-help bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400 gap-0.5">
+                                <WarningCircle size={10} weight="fill" />
+                                Delay
+                              </Badge>
+                              {p.delay_motivo && (
+                                <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+                                  <div className="whitespace-nowrap rounded-md bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md border border-border max-w-[200px] whitespace-normal">
+                                    {p.delay_motivo}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="py-2.5">
                         <div className="flex items-center gap-0.5">
-                          {p.estado === 'RECIBIDO' && (
+                          {(p.estado === 'RECIBIDO' || p.estado === 'PAGO_CONFIRMADO') && (
                             <EntregarRapidoDialog pedido={p} />
                           )}
                           <Button variant="ghost" size="sm" onClick={() => router.push(`/pedidos/${p.id}`)}>
@@ -284,13 +325,28 @@ export function PedidosView({
                   </button>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <Badge className={`text-[11px] ${estado.color}`}>{estado.label}</Badge>
+                    {p.tiene_delay && (
+                      <div className="group relative">
+                        <Badge className="text-[10px] cursor-help bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400 gap-0.5">
+                          <WarningCircle size={10} weight="fill" />
+                          Delay
+                        </Badge>
+                        {p.delay_motivo && (
+                          <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+                            <div className="rounded-md bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md border border-border max-w-[200px]">
+                              {p.delay_motivo}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {cobro && <Badge className={`text-[10px] ${cobro.color}`}>{cobro.label}</Badge>}
                     {p.fecha_entrega_min && (
                       <span className="text-[11px] text-muted-foreground">
                         Entrega: {formatFechaCorta(p.fecha_entrega_min)}
                       </span>
                     )}
-                    {p.estado === 'RECIBIDO' && (
+                    {(p.estado === 'RECIBIDO' || p.estado === 'PAGO_CONFIRMADO') && (
                       <div className="ml-auto">
                         <EntregarRapidoDialog pedido={p} />
                       </div>

@@ -1,5 +1,6 @@
 import { Users } from '@phosphor-icons/react/dist/ssr'
 import { createServerSupabase } from '@/lib/supabase/server'
+import type { Cliente } from '@/lib/types/database'
 import { ClientesView } from './_components/clientes-view'
 
 export default async function ClientesPage() {
@@ -21,7 +22,7 @@ export default async function ClientesPage() {
           <h1 className="text-2xl font-semibold">Clientes</h1>
         </div>
       </div>
-      <ClientesView clientes={clientes ?? []} />
+      <ClientesView clientes={(clientes ?? []) as Cliente[]} />
     </div>
   )
 }

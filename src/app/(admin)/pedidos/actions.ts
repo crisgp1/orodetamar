@@ -149,7 +149,7 @@ export async function entregarPedido(data: EntregarPedidoInput) {
     .single()
 
   if (!pedido) return { error: 'Pedido no encontrado' }
-  if (pedido.estado !== 'RECIBIDO') return { error: 'Pedido no válido para entrega' }
+  if (pedido.estado !== 'RECIBIDO' && pedido.estado !== 'PAGO_CONFIRMADO' && pedido.estado !== 'PENDIENTE_PAGO') return { error: 'Pedido no válido para entrega' }
 
   // Obtener detalle separado
   const { data: detalleRaw } = await supabase
@@ -270,7 +270,7 @@ export async function cancelarPedido(data: CancelarPedidoInput) {
     .single()
 
   if (!pedido) return { error: 'Pedido no encontrado' }
-  if (pedido.estado !== 'RECIBIDO') {
+  if (pedido.estado !== 'RECIBIDO' && pedido.estado !== 'PENDIENTE_PAGO') {
     return { error: 'Solo se pueden cancelar pedidos pendientes' }
   }
 
@@ -286,5 +286,220 @@ export async function cancelarPedido(data: CancelarPedidoInput) {
   if (error) return { error: error.message }
 
   revalidar(pedido_id)
+  return { ok: true }
+}
+
+// ── Aprobar comprobante ───────────────────────────────────────
+
+export async function aprobarComprobante(comprobanteId: number) {
+  const supabase = createServerSupabase()
+
+  // Obtener comprobante
+  const { data: comprobante } = await supabase
+    .from('pedido_comprobantes')
+    .select('pedido_id, estado')
+    .eq('id', comprobanteId)
+    .single()
+
+  if (!comprobante) return { error: 'Comprobante no encontrado' }
+  if (comprobante.estado !== 'PENDIENTE') return { error: 'Comprobante ya fue revisado' }
+
+  // Aprobar comprobante
+  const { error: errUpd } = await supabase
+    .from('pedido_comprobantes')
+    .update({
+      estado: 'APROBADO',
+      revisado_at: new Date().toISOString(),
+    })
+    .eq('id', comprobanteId)
+
+  if (errUpd) return { error: errUpd.message }
+
+  // Cambiar estado del pedido a RECIBIDO si estaba en PENDIENTE_PAGO
+  const { data: pedido } = await supabase
+    .from('pedidos')
+    .select('estado')
+    .eq('id', comprobante.pedido_id)
+    .single()
+
+  if (pedido?.estado === 'PENDIENTE_PAGO') {
+    await supabase
+      .from('pedidos')
+      .update({ estado: 'RECIBIDO' })
+      .eq('id', comprobante.pedido_id)
+  }
+
+  revalidar(comprobante.pedido_id)
+  return { ok: true }
+}
+
+// ── Rechazar comprobante ──────────────────────────────────────
+
+export async function rechazarComprobante(comprobanteId: number, notas: string) {
+  const supabase = createServerSupabase()
+
+  const { data: comprobante } = await supabase
+    .from('pedido_comprobantes')
+    .select('pedido_id, estado')
+    .eq('id', comprobanteId)
+    .single()
+
+  if (!comprobante) return { error: 'Comprobante no encontrado' }
+  if (comprobante.estado !== 'PENDIENTE') return { error: 'Comprobante ya fue revisado' }
+
+  const { error: errUpd } = await supabase
+    .from('pedido_comprobantes')
+    .update({
+      estado: 'RECHAZADO',
+      notas_admin: notas || null,
+      revisado_at: new Date().toISOString(),
+    })
+    .eq('id', comprobanteId)
+
+  if (errUpd) return { error: errUpd.message }
+
+  revalidar(comprobante.pedido_id)
+  return { ok: true }
+}
+
+// ── Cambiar estado de pedido (timeline) ───────────────────────
+
+const ESTADOS_VALIDOS = [
+  'PENDIENTE_PAGO',
+  'RECIBIDO',
+  'PAGO_CONFIRMADO',
+  'EN_PREPARACION',
+  'LISTO',
+  'EN_RUTA',
+  'ENTREGADO',
+] as const
+
+export async function cambiarEstadoPedido(pedidoId: number, nuevoEstado: string) {
+  if (!ESTADOS_VALIDOS.includes(nuevoEstado as (typeof ESTADOS_VALIDOS)[number])) {
+    return { error: 'Estado no válido' }
+  }
+
+  const supabase = createServerSupabase()
+
+  const { data: pedido } = await supabase
+    .from('pedidos')
+    .select('estado')
+    .eq('id', pedidoId)
+    .single()
+
+  if (!pedido) return { error: 'Pedido no encontrado' }
+  if (pedido.estado === 'CANCELADO') return { error: 'No se puede cambiar un pedido cancelado' }
+
+  // Si se mueve a ENTREGADO, hay que descontar inventario
+  if (nuevoEstado === 'ENTREGADO' && pedido.estado !== 'ENTREGADO') {
+    const { data: detalleRaw } = await supabase
+      .from('pedido_detalle')
+      .select('producto_id, cantidad')
+      .eq('pedido_id', pedidoId)
+
+    const detalle = detalleRaw ?? []
+
+    for (const linea of detalle) {
+      const { data: stock } = await supabase
+        .from('inventario')
+        .select('cantidad_disponible')
+        .eq('producto_id', linea.producto_id)
+        .single()
+
+      if (!stock || stock.cantidad_disponible < linea.cantidad) {
+        return { error: `Stock insuficiente para producto #${linea.producto_id}` }
+      }
+    }
+
+    const movimientos = detalle.map((linea) => ({
+      producto_id: linea.producto_id,
+      tipo: 'VENTA' as const,
+      cantidad: -Math.abs(linea.cantidad),
+      pedido_id: pedidoId,
+      notas: `Pedido #${pedidoId} entregado`,
+    }))
+
+    const { error: errMov } = await supabase.from('movimientos_inventario').insert(movimientos)
+    if (errMov) return { error: errMov.message }
+  }
+
+  const updateData: Record<string, unknown> = { estado: nuevoEstado }
+  if (nuevoEstado === 'ENTREGADO') {
+    updateData.fecha_entrega_real = new Date().toISOString()
+  }
+
+  const { error } = await supabase
+    .from('pedidos')
+    .update(updateData)
+    .eq('id', pedidoId)
+
+  if (error) return { error: error.message }
+
+  revalidar(pedidoId)
+  revalidatePath('/inventario')
+  return { ok: true }
+}
+
+// ── Marcar / quitar delay de preparación ──────────────────────
+
+export async function toggleDelayPedido(
+  pedidoId: number,
+  tieneDelay: boolean,
+  motivo?: string
+) {
+  const supabase = createServerSupabase()
+
+  const { data: pedido } = await supabase
+    .from('pedidos')
+    .select('estado')
+    .eq('id', pedidoId)
+    .single()
+
+  if (!pedido) return { error: 'Pedido no encontrado' }
+  if (['ENTREGADO', 'CANCELADO'].includes(pedido.estado)) {
+    return { error: 'No se puede marcar delay en un pedido finalizado' }
+  }
+
+  const { error } = await supabase
+    .from('pedidos')
+    .update({
+      tiene_delay: tieneDelay,
+      delay_motivo: tieneDelay ? (motivo || null) : null,
+    })
+    .eq('id', pedidoId)
+
+  if (error) return { error: error.message }
+
+  revalidar(pedidoId)
+  return { ok: true }
+}
+
+// ── Establecer fecha de entrega estimada ──────────────────────
+
+export async function setFechaEntregaEstimada(
+  pedidoId: number,
+  fecha: string | null
+) {
+  const supabase = createServerSupabase()
+
+  const { data: pedido } = await supabase
+    .from('pedidos')
+    .select('estado')
+    .eq('id', pedidoId)
+    .single()
+
+  if (!pedido) return { error: 'Pedido no encontrado' }
+  if (['ENTREGADO', 'CANCELADO'].includes(pedido.estado)) {
+    return { error: 'No se puede cambiar la entrega estimada de un pedido finalizado' }
+  }
+
+  const { error } = await supabase
+    .from('pedidos')
+    .update({ fecha_entrega_estimada: fecha })
+    .eq('id', pedidoId)
+
+  if (error) return { error: error.message }
+
+  revalidar(pedidoId)
   return { ok: true }
 }

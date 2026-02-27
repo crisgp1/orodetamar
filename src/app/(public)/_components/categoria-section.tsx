@@ -40,12 +40,14 @@ const letterVariants = {
 export function CategoriaSection({
   categoria,
   productos,
+  imagenesMap,
   carrito,
   onAgregar,
   onCambiarCantidad,
 }: {
   categoria: Categoria
   productos: Producto[]
+  imagenesMap: Record<number, string[]>
   carrito: Map<number, number>
   onAgregar: (id: number) => void
   onCambiarCantidad: (id: number, delta: number) => void
@@ -117,6 +119,7 @@ export function CategoriaSection({
           >
             <ProductoCard
               producto={p}
+              imagenes={imagenesMap[p.id]}
               cantidadEnCarrito={carrito.get(p.id) ?? 0}
               onAgregar={() => onAgregar(p.id)}
               onCambiarCantidad={(delta) => onCambiarCantidad(p.id, delta)}

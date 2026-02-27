@@ -17,7 +17,8 @@ export default async function PedidoDetallePage({
         *,
         clientes(nombre, tipo, telefono, whatsapp, direccion, ciudad),
         pedido_detalle(*, productos(nombre, presentacion, peso_gramos)),
-        pedido_pagos(*)
+        pedido_pagos(*),
+        pedido_comprobantes(*)
       `)
       .eq('id', Number(id))
       .single(),
@@ -58,6 +59,16 @@ export default async function PedidoDetallePage({
       metodo_pago: 'EFECTIVO' | 'TRANSFERENCIA'
       fecha_pago: string
       notas: string | null
+    }>) ?? [],
+    pedido_comprobantes: (pedido.pedido_comprobantes as Array<{
+      id: number
+      pedido_id: number
+      imagen_url: string
+      monto_declarado: number | null
+      estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
+      notas_admin: string | null
+      created_at: string
+      revisado_at: string | null
     }>) ?? [],
   }
 

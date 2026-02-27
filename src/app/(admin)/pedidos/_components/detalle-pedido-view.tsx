@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, X, CurrencyDollar } from '@phosphor-icons/react'
+import { ArrowLeft, Check, X, CurrencyDollar, Clock, CheckCircle, XCircle, Receipt, Image as ImageIcon, WarningCircle, CalendarBlank } from '@phosphor-icons/react'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -40,9 +41,15 @@ import {
   entregarPedido,
   registrarPagoPedido,
   cancelarPedido,
+  aprobarComprobante,
+  rechazarComprobante,
+  cambiarEstadoPedido,
+  toggleDelayPedido,
+  setFechaEntregaEstimada,
 } from '../actions'
 import { EditarPedidoDialog } from './editar-pedido-dialog'
 import { WhatsAppButton } from '@/components/shared/whatsapp-button'
+import { PedidoTimeline } from '@/components/shared/pedido-timeline'
 import type { EstadoPedido, MetodoPago, TipoCliente } from '@/lib/types/database'
 
 type PedidoDetalle = {
@@ -53,6 +60,9 @@ type PedidoDetalle = {
   fecha_entrega_min: string | null
   fecha_entrega_max: string | null
   fecha_entrega_real: string | null
+  fecha_entrega_estimada: string | null
+  tiene_delay: boolean
+  delay_motivo: string | null
   canal_venta: string | null
   descuento_porcentaje: number | null
   subtotal: number | null
@@ -84,10 +94,25 @@ type PedidoDetalle = {
     fecha_pago: string
     notas: string | null
   }>
+  pedido_comprobantes: Array<{
+    id: number
+    pedido_id: number
+    imagen_url: string
+    monto_declarado: number | null
+    estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
+    notas_admin: string | null
+    created_at: string
+    revisado_at: string | null
+  }>
 }
 
 const estadoConfig: Record<string, { label: string; color: string }> = {
+  PENDIENTE_PAGO: { label: 'Pendiente de pago', color: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400' },
   RECIBIDO: { label: 'Pendiente', color: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+  PAGO_CONFIRMADO: { label: 'Pago confirmado', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+  EN_PREPARACION: { label: 'En preparacion', color: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400' },
+  LISTO: { label: 'Listo', color: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400' },
+  EN_RUTA: { label: 'En ruta', color: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400' },
   ENTREGADO: { label: 'Entregado', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
   CANCELADO: { label: 'Cancelado', color: 'bg-gray-100 text-gray-500 dark:bg-gray-900 dark:text-gray-400' },
 }
@@ -155,12 +180,27 @@ export function DetallePedidoView({
   productos: ProductoOption[]
 }) {
   const router = useRouter()
+  const [isPendingTimeline, startTimelineTransition] = useTransition()
+  const [isPendingDelay, startDelayTransition] = useTransition()
+  const [isPendingEntrega, startEntregaTransition] = useTransition()
 
   const total = pedido.total ?? 0
   const totalCobrado = pedido.pedido_pagos.reduce((s, p) => s + p.monto, 0)
   const saldo = total - totalCobrado
   const pctCobrado = total > 0 ? (totalCobrado / total) * 100 : 0
   const estado = estadoConfig[pedido.estado] ?? estadoConfig.RECIBIDO
+
+  function handleTimelineChange(nuevoEstado: string) {
+    startTimelineTransition(async () => {
+      const result = await cambiarEstadoPedido(pedido.id, nuevoEstado)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(`Estado actualizado`)
+      router.refresh()
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -178,6 +218,27 @@ export function DetallePedidoView({
             Pedido #{String(pedido.id).padStart(3, '0')}
           </h1>
           <Badge className={`text-[11px] ${estado.color}`}>{estado.label}</Badge>
+          {pedido.tiene_delay && (
+            <div className="group relative">
+              <Badge className="text-[11px] cursor-help bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400 gap-1">
+                <WarningCircle size={12} weight="fill" />
+                Delay
+              </Badge>
+              {pedido.delay_motivo && (
+                <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="whitespace-nowrap rounded-md bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md border border-border">
+                    {pedido.delay_motivo}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {pedido.fecha_entrega_estimada && !['ENTREGADO', 'CANCELADO'].includes(pedido.estado) && (
+            <Badge className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400 gap-1">
+              <CalendarBlank size={11} />
+              Entrega est: {new Date(pedido.fecha_entrega_estimada + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+            </Badge>
+          )}
           {pedido.estado === 'ENTREGADO' && (
             <Badge
               className={`text-[10px] ${
@@ -193,6 +254,48 @@ export function DetallePedidoView({
           )}
         </div>
       </div>
+
+      {/* Timeline */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Progreso del pedido</h2>
+        <PedidoTimeline
+          estado={pedido.estado}
+          interactive
+          onChangeEstado={handleTimelineChange}
+          isPending={isPendingTimeline}
+          tieneDelay={pedido.tiene_delay}
+          delayMotivo={pedido.delay_motivo}
+          fechaEntregaEstimada={pedido.fecha_entrega_estimada}
+        />
+        {isPendingTimeline && (
+          <p className="mt-3 text-center text-xs text-muted-foreground animate-pulse">Actualizando estado...</p>
+        )}
+      </div>
+
+      {/* Delay + Entrega estimada */}
+      {!['ENTREGADO', 'CANCELADO'].includes(pedido.estado) && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h2 className="mb-3 text-sm font-medium text-muted-foreground">Gestión de entrega</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Delay toggle */}
+            <DelayControl
+              pedidoId={pedido.id}
+              tieneDelay={pedido.tiene_delay}
+              delayMotivo={pedido.delay_motivo}
+              isPending={isPendingDelay}
+              startTransition={startDelayTransition}
+            />
+
+            {/* Entrega estimada */}
+            <EntregaEstimadaControl
+              pedidoId={pedido.id}
+              fechaActual={pedido.fecha_entrega_estimada}
+              isPending={isPendingEntrega}
+              startTransition={startEntregaTransition}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Info del pedido */}
       <div className="rounded-lg border border-border bg-card p-4">
@@ -280,6 +383,21 @@ export function DetallePedidoView({
         )}
       </div>
 
+      {/* Comprobantes */}
+      {pedido.pedido_comprobantes.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <Receipt size={14} />
+            Comprobantes de pago
+          </h2>
+          <div className="space-y-3">
+            {pedido.pedido_comprobantes.map((c) => (
+              <ComprobanteCard key={c.id} comprobante={c} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Pagos (solo si ENTREGADO) */}
       {pedido.estado === 'ENTREGADO' && (
         <div className="rounded-lg border border-border bg-card p-4">
@@ -349,15 +467,21 @@ export function DetallePedidoView({
       )}
 
       {/* Acciones */}
-      {pedido.estado === 'RECIBIDO' && (
+      {(pedido.estado === 'RECIBIDO' || pedido.estado === 'PENDIENTE_PAGO' || pedido.estado === 'PAGO_CONFIRMADO') && (
         <div className="flex flex-wrap gap-2">
-          <EditarPedidoDialog
-            pedido={pedido}
-            productos={productos}
-            clienteTipo={pedido.clientes?.tipo as TipoCliente | undefined}
-          />
-          <EntregarPedidoDialog pedido={pedido} />
-          <CancelarPedidoDialog pedidoId={pedido.id} />
+          {pedido.estado === 'RECIBIDO' && (
+            <EditarPedidoDialog
+              pedido={pedido}
+              productos={productos}
+              clienteTipo={pedido.clientes?.tipo as TipoCliente | undefined}
+            />
+          )}
+          {(pedido.estado === 'RECIBIDO' || pedido.estado === 'PAGO_CONFIRMADO') && (
+            <EntregarPedidoDialog pedido={pedido} />
+          )}
+          {(pedido.estado === 'RECIBIDO' || pedido.estado === 'PENDIENTE_PAGO') && (
+            <CancelarPedidoDialog pedidoId={pedido.id} />
+          )}
         </div>
       )}
     </div>
@@ -638,5 +762,367 @@ function RegistrarPagoDialog({
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────
+// Delay control
+// ────────────────────────────────────────────────────────────────
+
+function DelayControl({
+  pedidoId,
+  tieneDelay,
+  delayMotivo,
+  isPending,
+  startTransition,
+}: {
+  pedidoId: number
+  tieneDelay: boolean
+  delayMotivo: string | null
+  isPending: boolean
+  startTransition: (cb: () => Promise<void>) => void
+}) {
+  const router = useRouter()
+  const [motivo, setMotivo] = useState(delayMotivo ?? '')
+  const [showForm, setShowForm] = useState(false)
+
+  function handleActivar() {
+    if (!motivo.trim()) {
+      toast.error('Escribe el motivo del retraso')
+      return
+    }
+    startTransition(async () => {
+      const result = await toggleDelayPedido(pedidoId, true, motivo.trim())
+      if (result.error) { toast.error(result.error); return }
+      toast.success('Delay marcado')
+      setShowForm(false)
+      router.refresh()
+    })
+  }
+
+  function handleQuitar() {
+    startTransition(async () => {
+      const result = await toggleDelayPedido(pedidoId, false)
+      if (result.error) { toast.error(result.error); return }
+      toast.success('Delay removido')
+      setMotivo('')
+      router.refresh()
+    })
+  }
+
+  if (tieneDelay) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <WarningCircle size={16} weight="fill" className="text-orange-500" />
+          <span className="text-sm font-medium text-orange-700 dark:text-orange-400">Delay activo</span>
+        </div>
+        {delayMotivo && (
+          <p className="text-xs text-muted-foreground bg-orange-50 dark:bg-orange-950/30 rounded px-2 py-1.5">
+            {delayMotivo}
+          </p>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={handleQuitar}
+          disabled={isPending}
+        >
+          {isPending ? 'Quitando...' : 'Quitar delay'}
+        </Button>
+      </div>
+    )
+  }
+
+  if (showForm) {
+    return (
+      <div className="space-y-2">
+        <Label className="text-xs">Motivo del retraso *</Label>
+        <Textarea
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          rows={2}
+          placeholder="Ej: Falta de materia prima, problema de producción..."
+          className="text-sm"
+        />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="h-7 text-xs gap-1 bg-orange-600 hover:bg-orange-700"
+            onClick={handleActivar}
+            disabled={isPending || !motivo.trim()}
+          >
+            <WarningCircle size={12} weight="fill" />
+            {isPending ? 'Guardando...' : 'Marcar delay'}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => { setShowForm(false); setMotivo('') }}
+          >
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-muted-foreground">¿Hay un retraso en la preparación?</p>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 text-xs gap-1 text-orange-600 hover:text-orange-700 hover:border-orange-300"
+        onClick={() => setShowForm(true)}
+      >
+        <WarningCircle size={12} />
+        Marcar delay
+      </Button>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────
+// Entrega estimada control
+// ────────────────────────────────────────────────────────────────
+
+function EntregaEstimadaControl({
+  pedidoId,
+  fechaActual,
+  isPending,
+  startTransition,
+}: {
+  pedidoId: number
+  fechaActual: string | null
+  isPending: boolean
+  startTransition: (cb: () => Promise<void>) => void
+}) {
+  const router = useRouter()
+  const [fecha, setFecha] = useState(fechaActual ?? '')
+
+  function handleGuardar() {
+    startTransition(async () => {
+      const result = await setFechaEntregaEstimada(pedidoId, fecha || null)
+      if (result.error) { toast.error(result.error); return }
+      toast.success(fecha ? 'Entrega estimada actualizada' : 'Entrega estimada removida')
+      router.refresh()
+    })
+  }
+
+  // Get min date (today)
+  const hoy = new Date().toISOString().split('T')[0]
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">Entrega estimada</Label>
+      <div className="flex gap-2">
+        <Input
+          type="date"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          min={hoy}
+          className="h-8 text-sm flex-1"
+        />
+        <Button
+          size="sm"
+          className="h-8 text-xs gap-1"
+          onClick={handleGuardar}
+          disabled={isPending || fecha === (fechaActual ?? '')}
+        >
+          <CalendarBlank size={12} />
+          {isPending ? '...' : 'Guardar'}
+        </Button>
+      </div>
+      {fechaActual && (
+        <button
+          type="button"
+          className="text-[10px] text-muted-foreground hover:text-red-600 transition-colors"
+          onClick={() => {
+            setFecha('')
+            startTransition(async () => {
+              const result = await setFechaEntregaEstimada(pedidoId, null)
+              if (result.error) { toast.error(result.error); return }
+              toast.success('Entrega estimada removida')
+              router.refresh()
+            })
+          }}
+          disabled={isPending}
+        >
+          Quitar fecha estimada
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────
+// Comprobante card con acciones aprobar/rechazar
+// ────────────────────────────────────────────────────────────────
+
+function ComprobanteCard({
+  comprobante,
+}: {
+  comprobante: PedidoDetalle['pedido_comprobantes'][number]
+}) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [motivoRechazo, setMotivoRechazo] = useState('')
+
+  const estadoIcon = {
+    PENDIENTE: <Clock size={14} className="text-amber-500" />,
+    APROBADO: <CheckCircle size={14} weight="fill" className="text-emerald-500" />,
+    RECHAZADO: <XCircle size={14} weight="fill" className="text-red-500" />,
+  }
+
+  const estadoLabel = {
+    PENDIENTE: 'En revision',
+    APROBADO: 'Aprobado',
+    RECHAZADO: 'Rechazado',
+  }
+
+  const estadoBadgeColor = {
+    PENDIENTE: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
+    APROBADO: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+    RECHAZADO: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+  }
+
+  function handleAprobar() {
+    startTransition(async () => {
+      const result = await aprobarComprobante(comprobante.id)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Comprobante aprobado')
+      router.refresh()
+    })
+  }
+
+  function handleRechazar() {
+    if (!motivoRechazo.trim()) {
+      toast.error('Escribe el motivo del rechazo')
+      return
+    }
+    startTransition(async () => {
+      const result = await rechazarComprobante(comprobante.id, motivoRechazo.trim())
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Comprobante rechazado')
+      setMotivoRechazo('')
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="rounded border border-border p-3">
+      <div className="flex items-start gap-3">
+        {/* Thumbnail */}
+        <a
+          href={comprobante.imagen_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block h-20 w-20 shrink-0 overflow-hidden rounded border border-border bg-muted"
+        >
+          {comprobante.imagen_url.endsWith('.pdf') ? (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              <ImageIcon size={20} />
+            </div>
+          ) : (
+            <Image
+              src={comprobante.imagen_url}
+              alt="Comprobante"
+              width={80}
+              height={80}
+              className="h-full w-full object-cover"
+            />
+          )}
+        </a>
+
+        {/* Info */}
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-center gap-1.5">
+            {estadoIcon[comprobante.estado]}
+            <Badge className={`text-[10px] ${estadoBadgeColor[comprobante.estado]}`}>
+              {estadoLabel[comprobante.estado]}
+            </Badge>
+          </div>
+          {comprobante.monto_declarado && (
+            <p className="text-xs text-muted-foreground">
+              Monto declarado: {formatMoney(comprobante.monto_declarado)}
+            </p>
+          )}
+          <p className="text-[10px] text-muted-foreground/60">
+            {formatFechaCorta(comprobante.created_at)}
+          </p>
+          {comprobante.notas_admin && (
+            <p className="text-xs italic text-muted-foreground">
+              {comprobante.notas_admin}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Acciones si PENDIENTE */}
+      {comprobante.estado === 'PENDIENTE' && (
+        <div className="mt-3 space-y-2 border-t border-dashed border-border pt-3">
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="h-8 gap-1 flex-1"
+              onClick={handleAprobar}
+              disabled={isPending}
+            >
+              <CheckCircle size={14} weight="bold" />
+              Aprobar
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1 flex-1 text-red-600 hover:text-red-700"
+                  disabled={isPending}
+                >
+                  <XCircle size={14} weight="bold" />
+                  Rechazar
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Rechazar comprobante</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    El cliente podra subir un nuevo comprobante.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <fieldset className="space-y-2">
+                  <Label>Motivo del rechazo *</Label>
+                  <Textarea
+                    value={motivoRechazo}
+                    onChange={(e) => setMotivoRechazo(e.target.value)}
+                    rows={2}
+                    placeholder="Ej: Imagen borrosa, monto incorrecto..."
+                  />
+                </fieldset>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleRechazar}
+                    disabled={isPending || !motivoRechazo.trim()}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    {isPending ? 'Procesando...' : 'Confirmar rechazo'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

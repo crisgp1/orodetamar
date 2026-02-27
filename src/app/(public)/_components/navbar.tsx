@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { WhatsappLogo, ShoppingBag, UserCircle, SignIn } from '@phosphor-icons/react'
+import { WhatsappLogo, ShoppingBag, UserCircle, SignIn, Package } from '@phosphor-icons/react'
 import {
   SignInButton,
   SignedIn,
@@ -97,6 +97,13 @@ export function Navbar({
             </SignInButton>
           </SignedOut>
           <SignedIn>
+            <Link
+              href="/mis-pedidos"
+              className="hidden items-center gap-1.5 text-[11px] tracking-[0.05em] text-foreground/50 transition-colors duration-300 hover:text-foreground sm:flex"
+            >
+              <Package size={14} weight="bold" />
+              <span>{t.misPedidos.titulo}</span>
+            </Link>
             <Link
               href="/seleccionar-rol"
               className="flex items-center gap-1.5 rounded-full bg-foreground/10 px-3 py-1 text-[11px] tracking-[0.05em] text-foreground/80 transition-colors duration-300 hover:bg-foreground/20 hover:text-foreground"

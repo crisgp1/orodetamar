@@ -5,7 +5,7 @@ import { ProductosView } from './_components/productos-view'
 export default async function ProductosPage() {
   const supabase = createServerSupabase()
 
-  const [productosRes, categoriasRes, costosRes, mpRes, recetasRes] = await Promise.all([
+  const [productosRes, categoriasRes, costosRes, mpRes, recetasRes, imagenesRes] = await Promise.all([
     supabase
       .from('productos')
       .select('*, categorias_producto(nombre)')
@@ -26,6 +26,9 @@ export default async function ProductosPage() {
     supabase
       .from('receta_ingredientes')
       .select('*, materias_primas(nombre, costo_unitario_actual)'),
+    supabase
+      .from('producto_imagenes')
+      .select('producto_id'),
   ])
 
   const productos = (productosRes.data ?? []).map((p) => ({
@@ -42,6 +45,12 @@ export default async function ProductosPage() {
 
   // Set of producto_ids that have at least one recipe ingredient
   const productosConRecetaIds = [...new Set(recetas.map((r) => r.producto_id))]
+
+  // Count images per product
+  const imageCountMap: Record<number, number> = {}
+  for (const row of imagenesRes.data ?? []) {
+    imageCountMap[row.producto_id] = (imageCountMap[row.producto_id] ?? 0) + 1
+  }
 
   return (
     <div>
@@ -60,6 +69,7 @@ export default async function ProductosPage() {
         materiasPrimas={materiasPrimas}
         recetas={recetas}
         productosConRecetaIds={productosConRecetaIds}
+        imageCountMap={imageCountMap}
       />
     </div>
   )

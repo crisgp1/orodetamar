@@ -185,6 +185,9 @@ CREATE TABLE public.pedidos (
   canal_venta VARCHAR(50),                  -- 'whatsapp', 'telefono', 'presencial'
   subtotal DECIMAL(10,2),
   total DECIMAL(10,2),
+  tiene_delay BOOLEAN NOT NULL DEFAULT FALSE,  -- Indica retraso en preparación
+  delay_motivo TEXT,                           -- Motivo del retraso
+  fecha_entrega_estimada DATE,                 -- Fecha estimada de entrega (admin)
   notas TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -559,23 +562,31 @@ SELECT
 -- ─── CATEGORÍAS DE PRODUCTO (3 registros) ───────────────────
 
 INSERT INTO public.categorias_producto (nombre, descripcion, vida_util_dias_ambiente, vida_util_dias_refrigerado, vida_util_dias_congelado, beneficios_salud) VALUES
-('Dátil Natural',   'Dátil medjool limpio y empacado sin procesamiento adicional. Producto base de Oro de Tamar.', 540, 1095, 1460, 'Beneficioso para el estómago y el área digestiva. Regenera las células del cuerpo. Rico en vitaminas y minerales. Fuente natural de energía. Alto contenido de fibra. Origen: Valle de Mexicali / Valle de Coachella.'),
-('Pulpa Enchilosa', 'Derivado del dátil: dátil sin semilla mezclado con chile y chamoy. Producto elaborado con dátil retornado o fresco.', 180, 365, NULL, 'Mismos beneficios del dátil natural con el plus de capsaicina del chile. Sabor único mexicano.'),
-('Bolita de Dátil', 'Bolita de dátil cubierta de chocolate. Snack saludable.', 180, 270, NULL, 'Snack saludable con antioxidantes del chocolate y nutrientes del dátil. Ideal para energía rápida.');
+('Dátil Natural',   'Dátil medjool limpio y empacado sin procesamiento adicional. Producto base de Oro de Tamar. Cultivado en el Valle de Mexicali. El dátil retornado de consignación se limpia y reprocesa para pulpa enchilosa.', 540, 1095, 1460, 'Beneficioso para el estómago y el área digestiva. Regenera las células del cuerpo. Rico en vitaminas (A, B, K) y minerales (potasio, magnesio, hierro). Fuente natural de energía. Alto contenido de fibra. Origen: Valle de Mexicali / Valle de Coachella.'),
+('Pulpa Enchilosa', 'Derivado del dátil: dátil sin semilla mezclado con chile y chamoy. Se elabora con dátil fresco o retornado de consignación (reprocesado). Producto estrella junto al dátil natural.', 180, 365, NULL, 'Mismos beneficios del dátil natural con el plus de capsaicina del chile, que activa el metabolismo. Sabor único mexicano. El chile aporta vitamina C adicional.'),
+('Bolita de Dátil', 'Bolita de dátil cubierta de chocolate. Snack saludable y energético. Producto innovador que diferencia a Oro de Tamar de otros productores de dátil.', 180, 270, NULL, 'Snack saludable con antioxidantes del chocolate y nutrientes del dátil. Ideal para energía rápida. Combinación de fibra natural del dátil con los flavonoides del cacao.');
 
--- ─── PRODUCTOS (9 registros) ────────────────────────────────
--- IDs asignados: 1-6 = Dátil Natural, 7-8 = Pulpa Enchilosa, 9 = Bolita
+-- ─── PRODUCTOS (13 registros) ───────────────────────────────
+-- SKU: DN = Dátil Natural, PE = Pulpa Enchilosa, BC = Bolita Chocolate
+--      B = bolsa, CH = charolita, C = caja
 
 INSERT INTO public.productos (categoria_id, nombre, presentacion, peso_gramos, precio_venta, precio_mayoreo, sku, es_snack) VALUES
-(1, 'Dátil Natural Bolsa 200g',        'bolsa',     200,   60.00,  NULL,    'DN-B-200',   TRUE),
-(1, 'Dátil Natural Bolsa 300g',        'bolsa',     300,   85.00,  NULL,    'DN-B-300',   TRUE),
-(1, 'Dátil Natural Bolsa 500g',        'bolsa',     500,  150.00,  NULL,    'DN-B-500',   FALSE),
-(1, 'Dátil Natural Bolsa 1kg',         'bolsa',    1000,  280.00,  NULL,    'DN-B-1000',  FALSE),
-(1, 'Dátil Natural Caja 5kg',          'caja',     5000, 1200.00, 1050.00, 'DN-C-5000',  FALSE),
-(1, 'Dátil Natural Caja 10kg',         'caja',    10000, 2200.00, 1900.00, 'DN-C-10000', FALSE),
-(2, 'Pulpa Enchilosa Charolita 300g',  'charolita', 300,  120.00,  NULL,    'PE-CH-300',  FALSE),
-(2, 'Pulpa Enchilosa Bolsa 500g',      'bolsa',     500,  180.00,  NULL,    'PE-B-500',   FALSE),
-(3, 'Bolitas de Dátil Chocolate 200g', 'bolsa',     200,   80.00,  NULL,    'BC-B-200',   TRUE);
+-- Dátil Natural (6)
+(1, 'Dátil Natural',                   'bolsa',      200,   60.00,  NULL,    'DN-B-200',   TRUE),
+(1, 'Dátil Natural',                   'bolsa',      300,   85.00,  NULL,    'DN-B-300',   TRUE),
+(1, 'Dátil Natural',                   'bolsa',      500,  150.00,  NULL,    'DN-B-500',   FALSE),
+(1, 'Dátil Natural',                   'bolsa',     1000,  280.00,  NULL,    'DN-B-1000',  FALSE),
+(1, 'Dátil Natural',                   'caja',      5000, 1200.00, 1050.00, 'DN-C-5000',  FALSE),
+(1, 'Dátil Natural',                   'caja',     10000, 2200.00, 1900.00, 'DN-C-10000', FALSE),
+-- Pulpa Enchilosa (4)
+(2, 'Pulpa Enchilosa',                 'charolita',  200,   75.00,  NULL,    'PE-CH-200',  TRUE),
+(2, 'Pulpa Enchilosa',                 'charolita',  300,  110.00,  NULL,    'PE-CH-300',  FALSE),
+(2, 'Pulpa Enchilosa',                 'bolsa',      500,  180.00,  NULL,    'PE-B-500',   FALSE),
+(2, 'Pulpa Enchilosa',                 'bolsa',     1000,  340.00,  NULL,    'PE-B-1000',  FALSE),
+-- Bolitas de Dátil con Chocolate (3)
+(3, 'Bolitas de Dátil con Chocolate',  'bolsa',      200,   80.00,  NULL,    'BC-B-200',   TRUE),
+(3, 'Bolitas de Dátil con Chocolate',  'bolsa',      300,  115.00,  NULL,    'BC-B-300',   TRUE),
+(3, 'Bolitas de Dátil con Chocolate',  'bolsa',      500,  180.00,  NULL,    'BC-B-500',   FALSE);
 
 -- ─── INVENTARIO INICIAL (9 registros, todos en 0) ───────────
 

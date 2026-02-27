@@ -1,6 +1,28 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+
+const STORAGE_KEY = 'odt_carrito'
+
+/** Serialise Map → localStorage */
+function persistCart(map: Map<number, number>) {
+  try {
+    const arr = Array.from(map.entries())
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr))
+  } catch { /* SSR / quota */ }
+}
+
+/** Read localStorage → Map (once, on mount) */
+function loadCart(): Map<number, number> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const arr: [number, number][] = JSON.parse(raw)
+      return new Map(arr)
+    }
+  } catch { /* SSR */ }
+  return new Map()
+}
 
 type Producto = {
   id: number
@@ -13,8 +35,15 @@ type Producto = {
   categoria_id: number
 }
 
+export { STORAGE_KEY, loadCart }
+
 export function useCarrito(productos: Producto[]) {
-  const [carrito, setCarrito] = useState<Map<number, number>>(() => new Map())
+  const [carrito, setCarrito] = useState<Map<number, number>>(() => loadCart())
+
+  /* Persist on every change (skip initial empty) */
+  useEffect(() => {
+    persistCart(carrito)
+  }, [carrito])
 
   const totalItems = useMemo(() => {
     let sum = 0

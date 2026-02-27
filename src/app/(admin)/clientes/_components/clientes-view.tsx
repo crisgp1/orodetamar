@@ -72,6 +72,7 @@ const canalLabels: Record<CanalOrigen, string> = {
   FACEBOOK: 'Facebook',
   WHATSAPP: 'WhatsApp',
   VISITA_DIRECTA: 'Visita directa',
+  SITIO_WEB: 'Sitio web',
   OTRO: 'Otro',
 }
 

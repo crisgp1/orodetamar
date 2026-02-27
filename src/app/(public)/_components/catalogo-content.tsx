@@ -37,11 +37,13 @@ type Producto = {
 export function CatalogoContent({
   categorias,
   productos,
+  imagenesMap,
   whatsapp,
   dictionary,
 }: {
   categorias: Categoria[]
   productos: Producto[]
+  imagenesMap: Record<number, string[]>
   whatsapp: string
   dictionary: Dictionary
 }) {
@@ -109,6 +111,7 @@ export function CatalogoContent({
                   key={activeCategoria.id}
                   categoria={activeCategoria}
                   productos={activeCategoria.productos}
+                  imagenesMap={imagenesMap}
                   carrito={carrito}
                   onAgregar={agregar}
                   onCambiarCantidad={cambiarCantidad}

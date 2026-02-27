@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { Plus, PencilSimple, FilePdf, Trash, Warning } from '@phosphor-icons/react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { Plus, PencilSimple, FilePdf, Trash, Warning, UploadSimple, ImageSquare, X, DotsSixVertical, Star, Images, Flask } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -12,6 +15,16 @@ import {
   DialogDescription,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Select,
   SelectContent,
@@ -29,8 +42,12 @@ import {
   actualizarProducto,
   agregarIngredienteReceta,
   eliminarIngredienteReceta,
+  agregarImagenProducto,
+  eliminarImagenProducto,
+  reordenarImagenesProducto,
+  obtenerImagenesProducto,
 } from '../actions'
-import type { Producto, RecetaIngrediente, UnidadMedida } from '@/lib/types/database'
+import type { Producto, ProductoImagen, RecetaIngrediente, UnidadMedida } from '@/lib/types/database'
 
 type ProductoConCategoria = Producto & {
   categorias_producto: { nombre: string } | null
@@ -77,6 +94,7 @@ export function ProductosView({
   materiasPrimas,
   recetas,
   productosConRecetaIds,
+  imageCountMap = {},
 }: {
   productos: ProductoConCategoria[]
   categorias: CategoriaOption[]
@@ -84,6 +102,7 @@ export function ProductosView({
   materiasPrimas: MPOption[]
   recetas: RecetaConMP[]
   productosConRecetaIds: number[]
+  imageCountMap?: Record<number, number>
 }) {
   const costosMap = new Map(costos.map((c) => [c.producto_id, c]))
   const recetaIds = new Set(productosConRecetaIds)
@@ -144,6 +163,30 @@ export function ProductosView({
                           <span>{p.presentacion} · {p.peso_gramos}g</span>
                           {p.sku && <span>SKU: {p.sku}</span>}
                           {costo && <span>Costo: {formatMoney(costo.costo_materia_prima)}</span>}
+                          {/* Image indicator */}
+                          {(imageCountMap[p.id] ?? 0) > 0 ? (
+                            <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400" title={`${imageCountMap[p.id]} imagen(es)`}>
+                              <Images size={13} weight="duotone" />
+                              <span className="tabular-nums">{imageCountMap[p.id]}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 text-amber-500 dark:text-amber-400" title="Sin imágenes">
+                              <ImageSquare size={13} />
+                              <span>0</span>
+                            </span>
+                          )}
+                          {/* Recipe indicator */}
+                          {tieneReceta ? (
+                            <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400" title="Receta configurada">
+                              <Flask size={13} weight="duotone" />
+                              <span>Receta</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 text-amber-500 dark:text-amber-400" title="Sin receta / materias primas">
+                              <Flask size={13} />
+                              <span>Sin MP</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
@@ -209,6 +252,8 @@ function CrearProductoWizard({
   const [precioMayoreo, setPrecioMayoreo] = useState('')
   const [sku, setSku] = useState('')
   const [esSnack, setEsSnack] = useState(false)
+  const [imagenFile, setImagenFile] = useState<File | null>(null)
+  const [imagenPreview, setImagenPreview] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function resetAll() {
@@ -225,6 +270,8 @@ function CrearProductoWizard({
     setPrecioMayoreo('')
     setSku('')
     setEsSnack(false)
+    setImagenFile(null)
+    setImagenPreview(null)
   }
 
   function handleOpenChange(v: boolean) {
@@ -240,6 +287,21 @@ function CrearProductoWizard({
   function handleCrear(e: React.FormEvent) {
     e.preventDefault()
     startTransition(async () => {
+      // Upload image if selected
+      let imagenUrl: string | null = null
+      if (imagenFile) {
+        try {
+          const res = await fetch(
+            `/api/upload?folder=productos&sku=${encodeURIComponent(sku.trim() || nombre.trim())}&filename=${encodeURIComponent(imagenFile.name)}`,
+            { method: 'POST', body: imagenFile, headers: { 'Content-Type': imagenFile.type } }
+          )
+          if (res.ok) {
+            const data = await res.json()
+            imagenUrl = data.url
+          }
+        } catch { /* continue without image */ }
+      }
+
       const result = await crearProducto({
         categoria_id: Number(categoriaId),
         nombre: nombre.trim(),
@@ -249,7 +311,7 @@ function CrearProductoWizard({
         precio_mayoreo: precioMayoreo ? Number(precioMayoreo) : null,
         sku: sku.trim() || null,
         es_snack: esSnack,
-        imagen_url: null,
+        imagen_url: imagenUrl,
       })
       if (result.error) {
         toast.error(result.error)
@@ -377,6 +439,12 @@ function CrearProductoWizard({
                 <input type="checkbox" checked={esSnack} onChange={(e) => setEsSnack(e.target.checked)} className="h-4 w-4 rounded border-input" />
                 Es snack (display pequeño)
               </label>
+
+              <ImageUploadField
+                preview={imagenPreview}
+                onSelect={(file, preview) => { setImagenFile(file); setImagenPreview(preview) }}
+                onClear={() => { setImagenFile(null); setImagenPreview(null) }}
+              />
 
               <Button type="submit" className="h-10 w-full" disabled={isPending}>
                 {isPending ? 'Creando...' : 'Siguiente'}
@@ -589,7 +657,7 @@ function EditarProductoDialog({
         precio_venta: Number(precioVenta),
         precio_mayoreo: precioMayoreo ? Number(precioMayoreo) : null,
         activo,
-        imagen_url: producto.imagen_url,
+        imagen_url: producto.imagen_url, // preserved — gallery manages this via syncPortada
       })
       if (result.error) {
         toast.error(result.error)
@@ -645,6 +713,15 @@ function EditarProductoDialog({
 
           <Separator className="my-4" />
 
+          {/* Image gallery manager */}
+          <GaleriaImagenes
+            productoId={producto.id}
+            productoSku={producto.sku || producto.nombre}
+            dialogOpen={open}
+          />
+
+          <Separator className="my-4" />
+
           {/* Recipe section */}
           <RecetaSection
             productoId={producto.id}
@@ -667,6 +744,421 @@ function EditarProductoDialog({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────
+// Image gallery manager (used in edit dialog) — @dnd-kit sortable
+// ────────────────────────────────────────────────────────────────
+
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+  type DragMoveEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  rectSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+type GaleriaImg = { id: number; imagen_url: string; posicion: number }
+
+// Sigmoid: maps any value to (-1, 1) — used for natural drag rotation
+const sigmoid = (x: number) => x / (1 + Math.abs(x))
+
+function GaleriaImagenes({
+  productoId,
+  productoSku,
+  dialogOpen,
+}: {
+  productoId: number
+  productoSku: string
+  dialogOpen: boolean
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [imagenes, setImagenes] = useState<GaleriaImg[]>([])
+  const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [activeId, setActiveId] = useState<number | null>(null)
+
+  // ── Delete confirmation state ──
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [skipConfirm, setSkipConfirm] = useState(false)
+
+  // ── Sigmoid rotation state ──
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const rotationRef = useRef(0)
+  const xVelocityRef = useRef(0)
+  const rafRef = useRef<number>(0)
+  const isDraggingRef = useRef(false)
+
+  // rAF loop: accumulate rotation with damping, apply to overlay
+  const animateRotation = useCallback(() => {
+    if (!isDraggingRef.current && Math.abs(rotationRef.current) < 0.01) {
+      rotationRef.current = 0
+      if (overlayRef.current) overlayRef.current.style.transform = 'scale(1.05) rotate(0deg)'
+      return // stop loop
+    }
+    // rotation = rotation * damping + sigmoid(velocity) * sensitivity
+    rotationRef.current =
+      rotationRef.current * 0.85 + sigmoid(xVelocityRef.current) * 3
+    // clamp to ±25 degrees
+    rotationRef.current = Math.max(-25, Math.min(25, rotationRef.current))
+    if (overlayRef.current) {
+      overlayRef.current.style.transform = `scale(1.05) rotate(${rotationRef.current.toFixed(2)}deg)`
+    }
+    // decay velocity when not moving
+    xVelocityRef.current *= 0.9
+    rafRef.current = requestAnimationFrame(animateRotation)
+  }, [])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  )
+
+  // Load images when dialog opens
+  const loadImagenes = useCallback(async () => {
+    setLoading(true)
+    const result = await obtenerImagenesProducto(productoId)
+    setImagenes(result.imagenes as GaleriaImg[])
+    setLoading(false)
+  }, [productoId])
+
+  useEffect(() => {
+    if (dialogOpen) loadImagenes()
+  }, [dialogOpen, loadImagenes])
+
+  // Upload new image
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const allowed = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowed.includes(file.type)) { toast.error('Solo JPG, PNG o WebP'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Máximo 5 MB'); return }
+
+    setUploading(true)
+    try {
+      const res = await fetch(
+        `/api/upload?folder=productos&sku=${encodeURIComponent(productoSku)}&filename=${encodeURIComponent(file.name)}`,
+        { method: 'POST', body: file, headers: { 'Content-Type': file.type } }
+      )
+      if (!res.ok) { toast.error('Error subiendo imagen'); return }
+      const data = await res.json()
+
+      const result = await agregarImagenProducto({
+        producto_id: productoId,
+        imagen_url: data.url,
+      })
+      if (result.error) { toast.error(result.error); return }
+
+      toast.success('Imagen agregada')
+      await loadImagenes()
+    } catch {
+      toast.error('Error de conexión')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  // Delete image
+  function handleDelete(imgId: number) {
+    startTransition(async () => {
+      const result = await eliminarImagenProducto({ id: imgId })
+      if (result.error) { toast.error(result.error); return }
+      toast.success('Imagen eliminada')
+      setImagenes((prev) => prev.filter((i) => i.id !== imgId))
+    })
+  }
+
+  // Request delete (with or without confirmation)
+  function requestDelete(imgId: number) {
+    if (skipConfirm) {
+      handleDelete(imgId)
+    } else {
+      setDeleteTarget(imgId)
+    }
+  }
+
+  function confirmDelete() {
+    if (deleteTarget !== null) {
+      handleDelete(deleteTarget)
+      setDeleteTarget(null)
+    }
+  }
+
+  // DnD handlers
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as number)
+    isDraggingRef.current = true
+    rotationRef.current = 0
+    xVelocityRef.current = 0
+    rafRef.current = requestAnimationFrame(animateRotation)
+  }
+
+  function handleDragMove(event: DragMoveEvent) {
+    // delta.x is the change since last move event — perfect for velocity
+    xVelocityRef.current = event.delta.x
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    isDraggingRef.current = false
+    xVelocityRef.current = 0
+    // let the rAF loop dampen rotation to 0 naturally
+    setActiveId(null)
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIdx = imagenes.findIndex((i) => i.id === active.id)
+    const newIdx = imagenes.findIndex((i) => i.id === over.id)
+    if (oldIdx === -1 || newIdx === -1) return
+
+    const newOrder = arrayMove(imagenes, oldIdx, newIdx)
+    setImagenes(newOrder)
+
+    startTransition(async () => {
+      const result = await reordenarImagenesProducto({
+        producto_id: productoId,
+        imagen_ids: newOrder.map((i) => i.id),
+      })
+      if (result.error) toast.error(result.error)
+      else toast.success('Orden actualizado')
+    })
+  }
+
+  // Move to front (make cover)
+  function handleMakePortada(imgId: number) {
+    const idx = imagenes.findIndex((i) => i.id === imgId)
+    if (idx <= 0) return
+    const newOrder = [...imagenes]
+    const [moved] = newOrder.splice(idx, 1)
+    newOrder.unshift(moved)
+    setImagenes(newOrder)
+
+    startTransition(async () => {
+      const result = await reordenarImagenesProducto({
+        producto_id: productoId,
+        imagen_ids: newOrder.map((i) => i.id),
+      })
+      if (result.error) toast.error(result.error)
+      else toast.success('Portada actualizada')
+    })
+  }
+
+  const activeImg = activeId ? imagenes.find((i) => i.id === activeId) : null
+
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-medium">Galería de imágenes</h3>
+
+      {loading ? (
+        <p className="py-4 text-center text-xs text-muted-foreground">Cargando imágenes…</p>
+      ) : imagenes.length === 0 ? (
+        <p className="mb-2 text-xs text-muted-foreground">Sin imágenes. Agrega fotos del producto.</p>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={imagenes.map((i) => i.id)} strategy={rectSortingStrategy}>
+            <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {imagenes.map((img, idx) => (
+                <SortableImageTile
+                  key={img.id}
+                  img={img}
+                  idx={idx}
+                  isActive={activeId === img.id}
+                  isPending={isPending}
+                  onDelete={requestDelete}
+                  onMakePortada={handleMakePortada}
+                />
+              ))}
+            </div>
+          </SortableContext>
+
+          {/* Drag overlay — portal to body to escape Dialog's transform containing block */}
+          {typeof document !== 'undefined' && createPortal(
+            <DragOverlay dropAnimation={{
+              duration: 300,
+              easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+            }}>
+              {activeImg && (
+                <div
+                  ref={overlayRef}
+                  className="rounded-lg border-2 border-primary shadow-2xl"
+                  style={{ transform: 'scale(1.05) rotate(0deg)', transformOrigin: 'center center' }}
+                >
+                  <img
+                    src={activeImg.imagen_url}
+                    alt="Arrastrando"
+                    className="aspect-square w-24 rounded-lg object-cover"
+                  />
+                </div>
+              )}
+            </DragOverlay>,
+            document.body
+          )}
+        </DndContext>
+      )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar imagen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. La imagen será eliminada permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={skipConfirm}
+              onChange={(e) => setSkipConfirm(e.target.checked)}
+              className="h-4 w-4 rounded border-border"
+            />
+            No volver a preguntar
+          </label>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Upload button */}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+      >
+        {uploading ? (
+          'Subiendo…'
+        ) : (
+          <>
+            <UploadSimple size={14} weight="bold" />
+            Agregar imagen
+          </>
+        )}
+      </Button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleUpload}
+      />
+    </div>
+  )
+}
+
+/* ── Sortable tile for each image ── */
+function SortableImageTile({
+  img,
+  idx,
+  isActive,
+  isPending,
+  onDelete,
+  onMakePortada,
+}: {
+  img: GaleriaImg
+  idx: number
+  isActive: boolean
+  isPending: boolean
+  onDelete: (id: number) => void
+  onMakePortada: (id: number) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: img.id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition ?? 'transform 250ms cubic-bezier(0.25, 1, 0.5, 1)',
+    willChange: isDragging ? 'transform' : undefined,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative rounded-lg border-2 transition-colors ${
+        isDragging
+          ? 'z-10 border-dashed border-primary/40 bg-muted'
+          : idx === 0
+            ? 'border-primary/50'
+            : 'border-border hover:border-primary/30'
+      }`}
+    >
+      {/* When dragging, show empty placeholder slot */}
+      {isDragging ? (
+        <div className="aspect-square w-full" />
+      ) : (
+        <>
+          {/* Drag handle: the image itself */}
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none overflow-hidden rounded-md">
+            <img
+              src={img.imagen_url}
+              alt={`Imagen ${idx + 1}`}
+              className="aspect-square w-full object-cover select-none"
+              draggable={false}
+            />
+          </div>
+
+          {/* Cover badge */}
+          {idx === 0 && (
+            <div className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground shadow">
+              Portada
+            </div>
+          )}
+
+          {/* Drag hint at bottom */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center py-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <DotsSixVertical size={16} weight="bold" color="#ffffff" />
+          </div>
+
+          {/* Delete X button — top right corner */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(img.id) }}
+            className="absolute -right-2 -top-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white shadow"
+            style={{ backgroundColor: '#000' }}
+            title="Eliminar"
+            disabled={isPending}
+          >
+            <X size={10} weight="bold" color="#ffffff" />
+          </button>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -797,14 +1289,104 @@ function RecetaSection({
           </div>
         </form>
       ) : (
-        availableMPs.length > 0 && (
-          <Button variant="outline" size="sm" className="h-8" onClick={() => setAdding(true)}>
-            <Plus size={14} weight="bold" />
-            Agregar ingrediente
-          </Button>
-        )
+        <>
+          {materiasPrimas.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No hay materias primas registradas.{' '}
+              <Link href="/materias-primas" className="underline text-primary hover:text-primary/80">
+                Crea una primero
+              </Link>.
+            </p>
+          ) : availableMPs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Todas las materias primas ya están en la receta.
+            </p>
+          ) : (
+            <Button variant="outline" size="sm" className="h-8" onClick={() => setAdding(true)}>
+              <Plus size={14} weight="bold" />
+              Agregar ingrediente
+            </Button>
+          )}
+        </>
       )}
     </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────
+// Reusable image upload field
+// ────────────────────────────────────────────────────────────────
+
+function ImageUploadField({
+  preview,
+  onSelect,
+  onClear,
+}: {
+  preview: string | null
+  onSelect: (file: File, previewUrl: string) => void
+  onClear: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const allowed = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowed.includes(file.type)) {
+      toast.error('Solo JPG, PNG o WebP')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Máximo 5 MB')
+      return
+    }
+    const url = URL.createObjectURL(file)
+    onSelect(file, url)
+  }
+
+  return (
+    <fieldset className="space-y-2">
+      <Label className="text-xs font-medium">Imagen del producto</Label>
+      {preview ? (
+        <div className="relative inline-block">
+          <Image
+            src={preview}
+            alt="Preview"
+            width={120}
+            height={120}
+            className="rounded-lg border border-border object-cover"
+            style={{ width: 120, height: 120 }}
+            unoptimized={preview.startsWith('blob:')}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onClear()
+              if (inputRef.current) inputRef.current.value = ''
+            }}
+            className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow"
+          >
+            <X size={10} weight="bold" />
+          </button>
+        </div>
+      ) : (
+        <div
+          onClick={() => inputRef.current?.click()}
+          className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-4 py-6 text-center transition-colors hover:border-primary/50 hover:bg-muted/50"
+        >
+          <ImageSquare size={24} className="mb-1 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">Click para subir imagen</p>
+          <p className="text-[10px] text-muted-foreground/60">JPG, PNG, WebP · Máx. 5 MB</p>
+        </div>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleChange}
+      />
+    </fieldset>
   )
 }
 

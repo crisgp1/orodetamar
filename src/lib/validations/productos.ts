@@ -28,6 +28,24 @@ export const ingredienteRecetaSchema = z.object({
   notas: z.string().nullable(),
 })
 
+// ── Image gallery schemas ──
+export const agregarImagenSchema = z.object({
+  producto_id: z.number().int().positive(),
+  imagen_url: z.string().url('URL de imagen inválida'),
+})
+
+export const eliminarImagenSchema = z.object({
+  id: z.number().int().positive(),
+})
+
+export const reordenarImagenesSchema = z.object({
+  producto_id: z.number().int().positive(),
+  imagen_ids: z.array(z.number().int().positive()).min(1, 'Debe haber al menos una imagen'),
+})
+
 export type CrearProductoInput = z.infer<typeof crearProductoSchema>
 export type ActualizarProductoInput = z.infer<typeof actualizarProductoSchema>
 export type IngredienteRecetaInput = z.infer<typeof ingredienteRecetaSchema>
+export type AgregarImagenInput = z.infer<typeof agregarImagenSchema>
+export type EliminarImagenInput = z.infer<typeof eliminarImagenSchema>
+export type ReordenarImagenesInput = z.infer<typeof reordenarImagenesSchema>

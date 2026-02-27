@@ -11,7 +11,8 @@ export default async function PedidosPage() {
       .select(`
         *,
         clientes(nombre, whatsapp),
-        pedido_detalle(*, productos(nombre, presentacion, peso_gramos))
+        pedido_detalle(*, productos(nombre, presentacion, peso_gramos)),
+        pedido_comprobantes(id, estado)
       `)
       .order('created_at', { ascending: false }),
     supabase
