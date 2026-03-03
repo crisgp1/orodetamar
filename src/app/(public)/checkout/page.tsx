@@ -1,9 +1,9 @@
-import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { getDictionary, defaultLocale } from '../_dictionaries'
+import { getServerDictionary } from '../_dictionaries/server'
 import { obtenerDatosBancarios } from './actions'
 import { CheckoutContent } from './checkout-content'
+import { CheckoutSignIn } from './checkout-sign-in'
 
 export const metadata = {
   title: 'Confirmar pedido | Oro de Tamar',
@@ -11,9 +11,12 @@ export const metadata = {
 
 export default async function CheckoutPage() {
   const { userId } = await auth()
-  if (!userId) redirect('/')
+  const dictionary = await getServerDictionary()
 
-  const dictionary = getDictionary(defaultLocale)
+  if (!userId) {
+    return <CheckoutSignIn dictionary={dictionary} />
+  }
+
   const supabase = createServerSupabase()
 
   const [datosBancarios, { data: productos }] = await Promise.all([

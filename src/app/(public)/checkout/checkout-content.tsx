@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useTransition } from 'react'
+import { useState, useRef, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 import {
   ArrowLeft,
   Bank,
@@ -87,24 +88,66 @@ function CheckoutInner({
   const fileRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
 
-  /* ── Cart from localStorage ── */
-  const items: CarritoItem[] = (() => {
+  /* ── Cart from localStorage (deferred to avoid hydration mismatch) ── */
+  const [items, setItems] = useState<CarritoItem[]>([])
+  const [cartLoaded, setCartLoaded] = useState(false)
+
+  useEffect(() => {
     const cart = loadCart()
     const resolved: CarritoItem[] = []
     cart.forEach((qty, pid) => {
       const p = productos.find((pr) => pr.id === pid)
       if (p) resolved.push({ producto: p, cantidad: qty })
     })
-    return resolved
-  })()
+    setItems(resolved)
+    setCartLoaded(true)
+  }, [productos])
 
   /* ── Form state ── */
   const [nombre, setNombre] = useState('')
   const [telefono, setTelefono] = useState('')
-  const [direccion, setDireccion] = useState('')
+  const [calle, setCalle] = useState('')
+  const [colonia, setColonia] = useState('')
+  const [ciudad, setCiudad] = useState('')
+  const [estado, setEstado] = useState('')
+  const [cp, setCp] = useState('')
   const [notas, setNotas] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [montoDeclarado, setMontoDeclarado] = useState('')
+
+  /* ── Validation ── */
+  const [submitted, setSubmitted] = useState(false)
+
+  type FieldKey = 'nombre' | 'telefono' | 'calle' | 'colonia' | 'ciudad' | 'estado' | 'cp' | 'file'
+
+  function getErrors(): Record<FieldKey, string | null> {
+    return {
+      nombre: !nombre.trim() ? t.checkout.campoObligatorio : null,
+      telefono: !telefono.trim() ? t.checkout.campoObligatorio : null,
+      calle: !calle.trim() ? t.checkout.campoObligatorio : null,
+      colonia: !colonia.trim() ? t.checkout.campoObligatorio : null,
+      ciudad: !ciudad.trim() ? t.checkout.campoObligatorio : null,
+      estado: !estado.trim() ? t.checkout.campoObligatorio : null,
+      cp: !cp.trim() ? t.checkout.campoObligatorio : cp.length !== 5 ? t.checkout.cpInvalido : null,
+      file: !file ? t.checkout.errorComprobante : null,
+    }
+  }
+
+  const errors = getErrors()
+  const hasErrors = Object.values(errors).some(Boolean)
+
+  /** Returns error classes if field has error and form was submitted */
+  function fieldErr(key: FieldKey) {
+    return submitted && errors[key]
+      ? 'border-red-400 focus:border-red-500'
+      : 'border-border focus:border-foreground'
+  }
+
+  /** Renders the error message below a field */
+  function fieldMsg(key: FieldKey) {
+    if (!submitted || !errors[key]) return null
+    return <p className="mt-1 text-[11px] text-red-500">{errors[key]}</p>
+  }
 
   /* ── Success state ── */
   const [success, setSuccess] = useState<number | null>(null) // pedidoId
@@ -129,8 +172,12 @@ function CheckoutInner({
   /* ── Submit ── */
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!items.length) return toast.error(t.checkout.errorVacio)
-    if (!file) return toast.error(t.checkout.errorComprobante)
+    setSubmitted(true)
+
+    if (hasErrors) {
+      toast.error(t.checkout.errorCampos)
+      return
+    }
 
     startTransition(async () => {
       try {
@@ -142,7 +189,7 @@ function CheckoutInner({
           })),
           nombre: nombre.trim(),
           telefono: telefono.trim(),
-          direccion: direccion.trim(),
+          direccion: [calle, colonia, cp, ciudad, estado].map(s => s.trim()).filter(Boolean).join(', '),
           notas: notas.trim(),
           montoDeclarado: montoDeclarado ? Number(montoDeclarado) : null,
         })
@@ -156,7 +203,7 @@ function CheckoutInner({
         // 2. Upload comprobante
         const fd = new FormData()
         fd.set('pedidoId', String(result.pedidoId))
-        fd.set('file', file)
+        if (file) fd.set('file', file)
         if (montoDeclarado) fd.set('montoDeclarado', montoDeclarado)
 
         const upload = await subirComprobante(fd)
@@ -181,18 +228,74 @@ function CheckoutInner({
 
   /* ── SUCCESS VIEW ── */
   if (success) {
+    const ease = [0.16, 1, 0.3, 1] as const
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center px-5">
         <div className="mx-auto w-full max-w-md text-center">
-          <CheckCircle size={64} weight="thin" className="mx-auto mb-6 text-[#25D366]" />
-          <h1 className="font-display text-3xl font-light">
-            {t.checkout.exitoTitulo}
-          </h1>
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-            {t.checkout.exitoDesc}
-          </p>
+          {/* Animated checkmark with pulse rings */}
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+            className="relative mx-auto mb-8 flex h-20 w-20 items-center justify-center"
+          >
+            {/* Pulse ring 1 */}
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0.4 }}
+              animate={{ scale: 2.5, opacity: 0 }}
+              transition={{ duration: 1.2, ease: 'easeOut', delay: 0.3 }}
+              className="absolute inset-0 rounded-full bg-[#25D366]/20"
+            />
+            {/* Pulse ring 2 */}
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0.3 }}
+              animate={{ scale: 1.8, opacity: 0 }}
+              transition={{ duration: 1, ease: 'easeOut', delay: 0.5 }}
+              className="absolute inset-0 rounded-full bg-[#25D366]/15"
+            />
+            <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-[#25D366]/10">
+              <CheckCircle size={48} weight="fill" className="text-[#25D366]" />
+            </div>
+          </motion.div>
 
-          <div className="mt-8 flex flex-col gap-3">
+          {/* Title */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease, delay: 0.35 }}
+            className="font-display text-3xl font-light"
+          >
+            {t.checkout.exitoTitulo}
+          </motion.h1>
+
+          {/* Description */}
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease, delay: 0.55 }}
+            className="mt-3 text-sm leading-relaxed text-muted-foreground"
+          >
+            {t.checkout.exitoDesc}
+          </motion.p>
+
+          {/* Order number badge */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, ease, delay: 0.7 }}
+            className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full bg-foreground/5 px-4 py-1.5 text-xs tracking-[0.1em] uppercase text-muted-foreground"
+          >
+            <Package size={14} />
+            {t.misPedidos.pedido} #{success}
+          </motion.div>
+
+          {/* Action buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease, delay: 0.85 }}
+            className="mt-8 flex flex-col gap-3"
+          >
             <Link
               href="/mis-pedidos"
               className="flex h-12 items-center justify-center gap-2 border border-foreground bg-foreground text-sm font-medium text-background transition-colors hover:bg-foreground/90"
@@ -207,8 +310,17 @@ function CheckoutInner({
               <ShoppingBag size={18} />
               {t.checkout.exitoSeguirComprando}
             </Link>
-          </div>
+          </motion.div>
         </div>
+      </div>
+    )
+  }
+
+  /* ── LOADING STATE (server + client before useEffect) ── */
+  if (!cartLoaded) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center">
+        <Spinner size={24} className="animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -310,41 +422,90 @@ function CheckoutInner({
                 <h2 className="text-[11px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">
                   {t.checkout.datosEntrega}
                 </h2>
+                <p className="mt-1 text-[10px] tracking-[0.03em] text-muted-foreground/60">
+                  🇲🇽 {t.checkout.soloMexico}
+                </p>
               </div>
               <div className="space-y-4 p-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-1.5 block text-xs font-medium">{t.checkout.nombre}</span>
+                    <span className="mb-1.5 block text-xs font-medium">{t.checkout.nombre} <span className="text-red-400">*</span></span>
                     <input
                       type="text"
-                      required
                       value={nombre}
                       onChange={(e) => setNombre(e.target.value)}
-                      className="h-10 w-full border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-foreground"
+                      className={`h-10 w-full border bg-background px-3 text-sm outline-none transition-colors ${fieldErr('nombre')}`}
                     />
+                    {fieldMsg('nombre')}
                   </label>
                   <label className="block">
-                    <span className="mb-1.5 block text-xs font-medium">{t.checkout.telefono}</span>
+                    <span className="mb-1.5 block text-xs font-medium">{t.checkout.telefono} <span className="text-red-400">*</span></span>
                     <input
                       type="tel"
-                      required
                       value={telefono}
                       onChange={(e) => setTelefono(e.target.value)}
-                      className="h-10 w-full border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-foreground"
+                      className={`h-10 w-full border bg-background px-3 text-sm outline-none transition-colors ${fieldErr('telefono')}`}
                     />
+                    {fieldMsg('telefono')}
                   </label>
                 </div>
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-medium">{t.checkout.direccion}</span>
+                  <span className="mb-1.5 block text-xs font-medium">{t.checkout.calle} <span className="text-red-400">*</span></span>
                   <input
                     type="text"
-                    required
-                    value={direccion}
-                    onChange={(e) => setDireccion(e.target.value)}
-                    placeholder={t.checkout.direccionPlaceholder}
-                    className="h-10 w-full border border-border bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground"
+                    value={calle}
+                    onChange={(e) => setCalle(e.target.value)}
+                    placeholder={t.checkout.callePlaceholder}
+                    className={`h-10 w-full border bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 ${fieldErr('calle')}`}
                   />
+                  {fieldMsg('calle')}
                 </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-medium">{t.checkout.colonia} <span className="text-red-400">*</span></span>
+                  <input
+                    type="text"
+                    value={colonia}
+                    onChange={(e) => setColonia(e.target.value)}
+                    placeholder={t.checkout.coloniaPlaceholder}
+                    className={`h-10 w-full border bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 ${fieldErr('colonia')}`}
+                  />
+                  {fieldMsg('colonia')}
+                </label>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-medium">{t.checkout.ciudad} <span className="text-red-400">*</span></span>
+                    <input
+                      type="text"
+                      value={ciudad}
+                      onChange={(e) => setCiudad(e.target.value)}
+                      className={`h-10 w-full border bg-background px-3 text-sm outline-none transition-colors ${fieldErr('ciudad')}`}
+                    />
+                    {fieldMsg('ciudad')}
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-medium">{t.checkout.estado} <span className="text-red-400">*</span></span>
+                    <input
+                      type="text"
+                      value={estado}
+                      onChange={(e) => setEstado(e.target.value)}
+                      className={`h-10 w-full border bg-background px-3 text-sm outline-none transition-colors ${fieldErr('estado')}`}
+                    />
+                    {fieldMsg('estado')}
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-medium">{t.checkout.codigoPostal} <span className="text-red-400">*</span></span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={5}
+                      value={cp}
+                      onChange={(e) => setCp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="00000"
+                      className={`h-10 w-full border bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 ${fieldErr('cp')}`}
+                    />
+                    {fieldMsg('cp')}
+                  </label>
+                </div>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-medium">{t.checkout.notas}</span>
                   <textarea
@@ -439,7 +600,9 @@ function CheckoutInner({
                   className={`flex cursor-pointer flex-col items-center justify-center border-2 border-dashed px-4 py-8 text-center transition-colors ${
                     file
                       ? 'border-[#25D366]/50 bg-[#25D366]/5'
-                      : 'border-border hover:border-foreground/30'
+                      : submitted && errors.file
+                        ? 'border-red-400 bg-red-50/50'
+                        : 'border-border hover:border-foreground/30'
                   }`}
                 >
                   {file ? (
@@ -469,6 +632,7 @@ function CheckoutInner({
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   />
                 </div>
+                {fieldMsg('file')}
 
                 <label className="block sm:max-w-xs">
                   <span className="mb-1.5 block text-xs font-medium">{t.checkout.montoTransferido}</span>

@@ -161,6 +161,7 @@ export type Pedido = {
   estado: EstadoPedido
   origen: string | null
   canal_venta: string | null
+  nombre_contacto: string | null
   direccion_entrega: string | null
   telefono_contacto: string | null
   requiere_anticipo: boolean

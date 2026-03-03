@@ -64,6 +64,10 @@ type PedidoDetalle = {
   tiene_delay: boolean
   delay_motivo: string | null
   canal_venta: string | null
+  origen: string | null
+  nombre_contacto: string | null
+  direccion_entrega: string | null
+  telefono_contacto: string | null
   descuento_porcentaje: number | null
   subtotal: number | null
   total: number | null
@@ -148,7 +152,7 @@ type ProductoOption = {
 }
 
 function buildMensajeWhatsApp(pedido: PedidoDetalle, saldo: number): string {
-  const nombre = pedido.clientes?.nombre ?? 'cliente'
+  const nombre = pedido.nombre_contacto || pedido.clientes?.nombre || 'cliente'
   const id = String(pedido.id).padStart(3, '0')
   const lineas = pedido.pedido_detalle
     .map((d) => `${d.cantidad}x ${d.productos?.nombre ?? 'producto'}`)
@@ -303,16 +307,24 @@ export function DetallePedidoView({
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <p className="text-xs text-muted-foreground">Cliente</p>
-            <p className="font-medium">{pedido.clientes?.nombre ?? 'Sin cliente'}</p>
-            {pedido.clientes?.whatsapp && (
+            <p className="font-medium">{pedido.nombre_contacto || pedido.clientes?.nombre || 'Sin cliente'}</p>
+            {pedido.origen === 'WEB' && (
+              <span className="ml-1 inline-block rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400">Web</span>
+            )}
+            {(pedido.telefono_contacto || pedido.clientes?.whatsapp) && (
               <div className="mt-1">
                 <WhatsAppButton
-                  telefono={pedido.clientes.whatsapp}
+                  telefono={pedido.telefono_contacto || pedido.clientes?.whatsapp || ''}
                   mensaje={buildMensajeWhatsApp(pedido, saldo)}
                 />
               </div>
             )}
-            {pedido.clientes?.ciudad && (
+            {pedido.direccion_entrega && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                <span className="font-medium">Dirección:</span> {pedido.direccion_entrega}
+              </p>
+            )}
+            {!pedido.direccion_entrega && pedido.clientes?.ciudad && (
               <p className="mt-0.5 text-xs text-muted-foreground">{pedido.clientes.ciudad}</p>
             )}
           </div>

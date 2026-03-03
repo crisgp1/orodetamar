@@ -3,13 +3,18 @@ import { notFound } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { CatalogoContent } from '../_components/catalogo-content'
 import { getDictionary, locales, defaultLocale } from '../_dictionaries'
+import { getServerLocale } from '../_dictionaries/server'
+import { setLocaleCookie } from '../_dictionaries/actions'
 
 type Props = { params: Promise<{ locale?: string[] }> }
 type SupportedLocale = (typeof locales)[number]
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale: segments } = await params
-  const locale = segments?.[0] ?? defaultLocale
+  const urlLocale = segments?.[0]
+  const locale = urlLocale && locales.includes(urlLocale as SupportedLocale)
+    ? urlLocale
+    : await getServerLocale()
   const t = getDictionary(locale)
   return {
     title: t.meta.title,
@@ -25,11 +30,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CatalogoPage({ params }: Props) {
   const { locale: segments } = await params
-  const locale = segments?.[0] ?? defaultLocale
+  const urlLocale = segments?.[0]
 
   // Only allow known locales and max 1 segment
-  if (segments && (segments.length > 1 || !locales.includes(locale as SupportedLocale))) {
+  if (segments && (segments.length > 1 || !locales.includes(urlLocale as SupportedLocale))) {
     notFound()
+  }
+
+  // If locale is in URL, persist it to cookie; otherwise read from cookie
+  let locale: string
+  if (urlLocale && locales.includes(urlLocale as SupportedLocale)) {
+    locale = urlLocale
+    await setLocaleCookie(locale)
+  } else {
+    locale = await getServerLocale()
   }
 
   const dictionary = getDictionary(locale)

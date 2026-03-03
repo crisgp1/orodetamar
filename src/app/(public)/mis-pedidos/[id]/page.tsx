@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { getDictionary, defaultLocale } from '../../_dictionaries'
+import { getServerDictionary } from '../../_dictionaries/server'
 import { PedidoDetalleContent } from './pedido-detalle-content'
 
 export const metadata = {
@@ -72,7 +72,7 @@ export default async function PedidoDetallePage({
 
   if (!pedido) notFound()
 
-  const dictionary = getDictionary(defaultLocale)
+  const dictionary = await getServerDictionary()
 
   return <PedidoDetalleContent dictionary={dictionary} pedido={pedido} />
 }

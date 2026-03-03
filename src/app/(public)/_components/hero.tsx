@@ -86,7 +86,7 @@ export function Hero() {
             className="mt-10"
           >
             <a
-              href="#catalogo"
+              href="/catalogo"
               className="inline-flex items-center gap-2 border border-foreground/20 px-10 py-3.5 text-[11px] font-medium tracking-[0.2em] uppercase text-foreground transition-colors duration-300 hover:bg-foreground hover:text-background"
             >
               {t.hero.cta}

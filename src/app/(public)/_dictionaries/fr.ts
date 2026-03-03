@@ -2,7 +2,7 @@ import type { Dictionary } from './es'
 
 export const fr: Dictionary = {
   locale: 'fr',
-  nav: { escribenos: 'Contactez-nous', iniciarSesion: 'Se connecter', irAlPortal: 'Aller au portail' },
+  nav: { escribenos: 'Contactez-nous', iniciarSesion: 'Se connecter', irAlPortal: 'Aller au portail', menu: 'Menu', catalogo: 'Catalogue', idioma: 'Langue', cerrar: 'Fermer le menu' },
   hero: {
     brand: 'O R O \u00A0 D E \u00A0 T A M A R',
     est: 'EST. 2024',
@@ -20,6 +20,16 @@ export const fr: Dictionary = {
   catalogo: {
     vacio: 'Bientôt disponible — nous préparons notre catalogue.',
     agregar: 'Ajouter',
+  },
+  catalogoPage: {
+    titulo: 'Notre Catalogue',
+    subtitulo: 'Explorez notre sélection de dattes premium, snacks artisanaux et produits naturels du désert de Basse-Californie.',
+    buscar: 'Rechercher un produit…',
+    todos: 'Tous',
+    sinResultados: 'Aucun produit trouvé avec ce nom.',
+    productos: 'produits',
+    volverInicio: "Retour à l'accueil",
+    verTodo: 'Voir tout le catalogue',
   },
   producto: {
     volver: 'Retour au catalogue',
@@ -66,6 +76,8 @@ export const fr: Dictionary = {
     waIntro: 'Bonjour ! Je souhaite passer une commande :',
     waCu: 'pièce',
     waNombre: 'Mon nom : ',
+    crearCuenta: 'Créez votre compte en quelques secondes pour continuer',
+    soloMexico: 'Livraison uniquement au Mexique',
   },
   checkout: {
     titulo: 'Confirmer la commande',
@@ -74,6 +86,13 @@ export const fr: Dictionary = {
     nombre: 'Nom complet',
     telefono: 'Téléphone / WhatsApp',
     direccion: 'Adresse de livraison',
+    calle: 'Rue et numéro',
+    callePlaceholder: '1234 Rue Principale',
+    colonia: 'Quartier',
+    coloniaPlaceholder: 'Col. Centro',
+    ciudad: 'Ville',
+    estado: 'État',
+    codigoPostal: 'Code postal',
     direccionPlaceholder: 'Rue, numéro, quartier, ville',
     notas: 'Notes supplémentaires',
     notasPlaceholder: 'Instructions spéciales, horaire préféré, etc.',
@@ -99,7 +118,14 @@ export const fr: Dictionary = {
     errorVacio: 'Votre panier est vide',
     errorComprobante: 'Téléchargez le justificatif de paiement',
     errorGeneral: 'Une erreur est survenue. Veuillez réessayer.',
+    errorCampos: 'Veuillez remplir tous les champs obligatoires',
+    campoObligatorio: 'Ce champ est obligatoire',
+    cpInvalido: 'Entrez un code postal valide (5 chiffres)',
     cu: 'pièce',
+    loginMsg: 'Connectez-vous ou créez votre compte pour finaliser votre commande. Cela ne prend que quelques secondes.',
+    loginBtn: 'Se connecter / Créer un compte',
+    loginNota: 'Votre panier est conservé lors de la connexion',
+    soloMexico: 'Nous livrons actuellement uniquement au Mexique',
   },
   misPedidos: {
     titulo: 'Mes commandes',

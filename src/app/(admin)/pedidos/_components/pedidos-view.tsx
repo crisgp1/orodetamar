@@ -43,6 +43,8 @@ type PedidoRow = {
   id: number
   cliente_id: number
   estado: EstadoPedido
+  origen: string | null
+  nombre_contacto: string | null
   fecha_entrega_min: string | null
   fecha_entrega_estimada: string | null
   tiene_delay: boolean
@@ -236,7 +238,10 @@ export function PedidosView({
                         #{String(p.id).padStart(3, '0')}
                       </td>
                       <td className="py-2.5 pr-3 font-medium">
-                        {p.clientes?.nombre ?? 'Sin cliente'}
+                        {p.nombre_contacto || p.clientes?.nombre || 'Sin cliente'}
+                        {p.origen === 'WEB' && (
+                          <span className="ml-1.5 inline-block rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400">Web</span>
+                        )}
                       </td>
                       <td className="max-w-[240px] truncate py-2.5 pr-3 text-muted-foreground">
                         {resumenProductos(p.pedido_detalle)}
@@ -315,7 +320,10 @@ export function PedidosView({
                         <span className="mr-1.5 font-mono text-xs text-muted-foreground">
                           #{String(p.id).padStart(3, '0')}
                         </span>
-                        {p.clientes?.nombre ?? 'Sin cliente'}
+                        {p.nombre_contacto || p.clientes?.nombre || 'Sin cliente'}
+                        {p.origen === 'WEB' && (
+                          <span className="ml-1.5 inline-block rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400">Web</span>
+                        )}
                       </span>
                       <span className="text-sm font-semibold">{formatMoney(p.total ?? 0)}</span>
                     </div>
@@ -820,7 +828,7 @@ function EntregarRapidoDialog({ pedido }: { pedido: PedidoRow }) {
             Entregar pedido #{String(pedido.id).padStart(3, '0')}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {pedido.clientes?.nombre ?? 'Sin cliente'} — {formatMoney(pedido.total ?? 0)}
+            {pedido.nombre_contacto || pedido.clientes?.nombre || 'Sin cliente'} — {formatMoney(pedido.total ?? 0)}
             {'\n'}Se descontará inventario.
           </AlertDialogDescription>
         </AlertDialogHeader>

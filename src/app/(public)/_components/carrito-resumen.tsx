@@ -2,7 +2,7 @@
 
 import { WhatsappLogo, Plus, Minus, X, ArrowRight, ShoppingBag } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
-import { SignedIn, SignedOut } from '@clerk/nextjs'
+import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -160,8 +160,11 @@ export function CarritoResumen({
                 {formatPrecio(totalEstimado)}
               </span>
             </div>
-            <p className="mb-4 text-xs text-muted-foreground italic">
+            <p className="mb-2 text-xs text-muted-foreground italic">
               {t.carrito.nota}
+            </p>
+            <p className="mb-4 text-[10px] tracking-[0.05em] text-muted-foreground/70">
+              🇲🇽 {t.carrito.soloMexico}
             </p>
 
             <SignedIn>
@@ -176,24 +179,29 @@ export function CarritoResumen({
                 {t.carrito.hacerPedido}
                 <ArrowRight size={16} weight="bold" />
               </button>
-              <button
-                onClick={handleEnviar}
-                className="flex h-10 w-full items-center justify-center gap-2 border border-border text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <WhatsappLogo size={16} weight="bold" className="text-[#25D366]" />
-                {t.carrito.oWhatsapp}
-              </button>
             </SignedIn>
             <SignedOut>
-              <button
-                onClick={handleEnviar}
-                className="flex h-12 w-full items-center justify-center gap-2 bg-[#25D366] text-sm font-semibold text-white shadow-lg shadow-green-500/20 transition-colors hover:bg-[#1DA851]"
-              >
-                <WhatsappLogo size={20} weight="bold" />
-                {t.carrito.pedir}
-                <ArrowRight size={16} weight="bold" />
-              </button>
+              <SignInButton mode="modal" forceRedirectUrl="/checkout" signUpForceRedirectUrl="/checkout">
+                <button
+                  className="flex h-12 w-full items-center justify-center gap-2 bg-foreground text-sm font-semibold text-background transition-opacity hover:opacity-90"
+                >
+                  <ShoppingBag size={18} weight="bold" />
+                  {t.carrito.hacerPedido}
+                  <ArrowRight size={16} weight="bold" />
+                </button>
+              </SignInButton>
+              <p className="mt-1 text-center text-[11px] text-muted-foreground">
+                {t.carrito.crearCuenta}
+              </p>
             </SignedOut>
+
+            <button
+              onClick={handleEnviar}
+              className="flex h-10 w-full items-center justify-center gap-2 border border-border text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <WhatsappLogo size={16} weight="bold" className="text-[#25D366]" />
+              {t.carrito.oWhatsapp}
+            </button>
 
             <button
               onClick={() => {

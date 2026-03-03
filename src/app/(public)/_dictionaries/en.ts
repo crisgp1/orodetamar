@@ -2,7 +2,7 @@ import type { Dictionary } from './es'
 
 export const en: Dictionary = {
   locale: 'en',
-  nav: { escribenos: 'Contact us', iniciarSesion: 'Sign in', irAlPortal: 'Go to portal' },
+  nav: { escribenos: 'Contact us', iniciarSesion: 'Sign in', irAlPortal: 'Go to portal', menu: 'Menu', catalogo: 'Catalog', idioma: 'Language', cerrar: 'Close menu' },
   hero: {
     brand: 'O R O \u00A0 D E \u00A0 T A M A R',
     est: 'EST. 2024',
@@ -20,6 +20,16 @@ export const en: Dictionary = {
   catalogo: {
     vacio: "Coming soon — we're preparing our catalog.",
     agregar: 'Add',
+  },
+  catalogoPage: {
+    titulo: 'Our Catalog',
+    subtitulo: 'Explore our selection of premium dates, artisan snacks and natural products from the Baja California desert.',
+    buscar: 'Search product…',
+    todos: 'All',
+    sinResultados: 'No products found with that name.',
+    productos: 'products',
+    volverInicio: 'Back to home',
+    verTodo: 'View full catalog',
   },
   producto: {
     volver: 'Back to catalog',
@@ -66,6 +76,8 @@ export const en: Dictionary = {
     waIntro: "Hi! I'd like to place an order:",
     waCu: 'ea.',
     waNombre: 'My name: ',
+    crearCuenta: 'Create your account in seconds to continue',
+    soloMexico: 'Shipping within Mexico only',
   },
   checkout: {
     titulo: 'Confirm order',
@@ -74,6 +86,13 @@ export const en: Dictionary = {
     nombre: 'Full name',
     telefono: 'Phone / WhatsApp',
     direccion: 'Delivery address',
+    calle: 'Street and number',
+    callePlaceholder: '1234 Main St',
+    colonia: 'Neighborhood',
+    coloniaPlaceholder: 'Col. Centro',
+    ciudad: 'City',
+    estado: 'State',
+    codigoPostal: 'Zip code',
     direccionPlaceholder: 'Street, number, neighborhood, city',
     notas: 'Additional notes',
     notasPlaceholder: 'Special instructions, preferred schedule, etc.',
@@ -99,7 +118,14 @@ export const en: Dictionary = {
     errorVacio: 'Your cart is empty',
     errorComprobante: 'Upload the payment receipt',
     errorGeneral: 'There was an error processing your order. Please try again.',
+    errorCampos: 'Please fill in all required fields',
+    campoObligatorio: 'This field is required',
+    cpInvalido: 'Enter a valid zip code (5 digits)',
     cu: 'ea.',
+    loginMsg: 'Sign in or create your account to complete your order. It only takes a few seconds.',
+    loginBtn: 'Sign in / Create account',
+    loginNota: 'Your cart is preserved when you sign in',
+    soloMexico: 'We currently only ship within Mexico',
   },
   misPedidos: {
     titulo: 'My orders',

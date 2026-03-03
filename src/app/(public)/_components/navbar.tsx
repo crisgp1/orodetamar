@@ -10,12 +10,8 @@ import {
   UserButton,
 } from '@clerk/nextjs'
 import { useDictionary } from '../_dictionaries/context'
-
-const langs = [
-  { code: 'es', label: 'ES', href: '/' },
-  { code: 'en', label: 'EN', href: '/en' },
-  { code: 'fr', label: 'FR', href: '/fr' },
-] as const
+import { MobileMenu } from './mobile-menu'
+import { LanguageSwitcher } from './language-switcher'
 
 export function Navbar({
   whatsapp,
@@ -45,33 +41,19 @@ export function Navbar({
       }`}
     >
       <div className="relative mx-auto flex h-14 max-w-7xl items-center px-5 md:px-8">
-        {/* Left: language switcher + WhatsApp */}
+        {/* Left: mobile menu (small screens) + language switcher + WhatsApp (desktop) */}
         <div className="flex flex-1 items-center gap-4">
-          <div className="flex items-center gap-1.5 text-[10px] tracking-[0.15em]">
-            {langs.map((lang, i) => (
-              <span key={lang.code} className="flex items-center gap-1.5">
-                {i > 0 && (
-                  <span className="text-foreground/20">·</span>
-                )}
-                <Link
-                  href={lang.href}
-                  className={`transition-colors duration-300 ${
-                    t.locale === lang.code
-                      ? 'font-semibold text-foreground'
-                      : 'text-foreground/40 hover:text-foreground/70'
-                  }`}
-                >
-                  {lang.label}
-                </Link>
-              </span>
-            ))}
-          </div>
+          {/* Mobile hamburger menu */}
+          <MobileMenu whatsapp={whatsapp} />
+
+          {/* Desktop language switcher */}
+          <LanguageSwitcher />
 
           <a
             href={`https://wa.me/52${whatsapp}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden items-center gap-1.5 text-[11px] tracking-[0.05em] text-foreground/50 transition-colors duration-300 hover:text-foreground sm:flex"
+            className="hidden items-center gap-1.5 text-[11px] tracking-[0.05em] text-foreground/50 transition-colors duration-300 hover:text-foreground md:flex"
           >
             <WhatsappLogo size={14} weight="bold" />
             {t.nav.escribenos}
@@ -89,27 +71,27 @@ export function Navbar({
         {/* Right: auth + cart */}
         <div className="flex flex-1 items-center justify-end gap-3">
           <SignedOut>
-            <SignInButton mode="modal">
-              <button className="flex items-center gap-1.5 text-[11px] tracking-[0.05em] text-foreground/60 transition-colors duration-300 hover:text-foreground">
+            <SignInButton mode="modal" forceRedirectUrl="/seleccionar-rol" signUpForceRedirectUrl="/seleccionar-rol">
+              <button className="hidden items-center gap-1.5 text-[11px] tracking-[0.05em] text-foreground/60 transition-colors duration-300 hover:text-foreground md:flex">
                 <UserCircle size={18} weight="regular" />
-                <span className="hidden sm:inline">{t.nav.iniciarSesion}</span>
+                <span>{t.nav.iniciarSesion}</span>
               </button>
             </SignInButton>
           </SignedOut>
           <SignedIn>
             <Link
               href="/mis-pedidos"
-              className="hidden items-center gap-1.5 text-[11px] tracking-[0.05em] text-foreground/50 transition-colors duration-300 hover:text-foreground sm:flex"
+              className="hidden items-center gap-1.5 text-[11px] tracking-[0.05em] text-foreground/50 transition-colors duration-300 hover:text-foreground md:flex"
             >
               <Package size={14} weight="bold" />
               <span>{t.misPedidos.titulo}</span>
             </Link>
             <Link
               href="/seleccionar-rol"
-              className="flex items-center gap-1.5 rounded-full bg-foreground/10 px-3 py-1 text-[11px] tracking-[0.05em] text-foreground/80 transition-colors duration-300 hover:bg-foreground/20 hover:text-foreground"
+              className="hidden items-center gap-1.5 rounded-full bg-foreground/10 px-3 py-1 text-[11px] tracking-[0.05em] text-foreground/80 transition-colors duration-300 hover:bg-foreground/20 hover:text-foreground md:flex"
             >
               <SignIn size={14} weight="bold" />
-              <span className="hidden sm:inline">{t.nav.irAlPortal}</span>
+              <span>{t.nav.irAlPortal}</span>
             </Link>
             <UserButton
               afterSignOutUrl="/"

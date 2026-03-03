@@ -86,6 +86,17 @@ export async function crearPedidoWeb(
       .from('perfiles')
       .update({ cliente_id: clienteId })
       .eq('id', perfil.id)
+  } else {
+    // Update existing cliente with latest form data
+    await supabase
+      .from('clientes')
+      .update({
+        nombre: nombre.trim(),
+        telefono: telefono.trim(),
+        whatsapp: telefono.trim(),
+        direccion: direccion.trim(),
+      })
+      .eq('id', clienteId)
   }
 
   // 4. Fetch product prices (from DB, never trust client)
@@ -131,6 +142,7 @@ export async function crearPedidoWeb(
       estado: 'PENDIENTE_PAGO',
       origen: 'WEB',
       canal_venta: 'sitio_web',
+      nombre_contacto: nombre.trim(),
       direccion_entrega: direccion.trim(),
       telefono_contacto: telefono.trim(),
       requiere_anticipo: requiereAnticipo,

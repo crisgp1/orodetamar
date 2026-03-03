@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import Link from 'next/link'
 import { AnimatePresence } from 'framer-motion'
+import { ArrowRight } from '@phosphor-icons/react'
 import { useCarrito } from '../_hooks/use-carrito'
 import { DictionaryProvider } from '../_dictionaries/context'
 import type { Dictionary } from '../_dictionaries'
+import { SplashScreen } from './splash-screen'
 import { Navbar } from './navbar'
 import { Hero } from './hero'
 import { TrustStrip } from './trust-strip'
@@ -76,8 +79,24 @@ export function CatalogoContent({
     (c) => c.id === resolvedActiveId
   )
 
+  // Splash screen — only once per session
+  const [showSplash, setShowSplash] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !sessionStorage.getItem('splash_shown')) {
+      setShowSplash(true)
+    }
+  }, [])
+
+  const handleSplashComplete = () => {
+    setShowSplash(false)
+    sessionStorage.setItem('splash_shown', '1')
+  }
+
   return (
     <DictionaryProvider dictionary={dictionary}>
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+
       <Navbar
         whatsapp={whatsapp}
         totalItems={totalItems}
@@ -118,6 +137,21 @@ export function CatalogoContent({
                 />
               )}
             </AnimatePresence>
+
+            {/* Ver todo el catálogo */}
+            <div className="mt-10 text-center md:mt-14">
+              <Link
+                href="/catalogo"
+                className="group inline-flex items-center gap-2.5 border border-foreground/15 px-8 py-3.5 text-[11px] font-medium tracking-[0.15em] uppercase text-foreground/70 transition-all duration-300 hover:border-foreground/40 hover:text-foreground"
+              >
+                {dictionary.catalogoPage.verTodo}
+                <ArrowRight
+                  size={14}
+                  weight="bold"
+                  className="transition-transform duration-300 group-hover:translate-x-0.5"
+                />
+              </Link>
+            </div>
           </>
         )}
       </section>

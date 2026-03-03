@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { getDictionary, defaultLocale } from '../../_dictionaries'
+import { getServerDictionary } from '../../_dictionaries/server'
 import { ProductoDetail } from '../../_components/producto-detail'
 
 type Props = { params: Promise<{ id: string }> }
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProductoPage({ params }: Props) {
   const { id } = await params
   const supabase = createServerSupabase()
-  const dictionary = getDictionary(defaultLocale)
+  const dictionary = await getServerDictionary()
 
   // Fetch the product with its category
   const { data: producto } = await supabase

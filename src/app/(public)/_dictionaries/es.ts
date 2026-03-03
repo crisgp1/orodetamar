@@ -1,6 +1,6 @@
 export const es = {
   locale: 'es' as string,
-  nav: { escribenos: 'Escríbenos', iniciarSesion: 'Iniciar sesión', irAlPortal: 'Ir al portal' },
+  nav: { escribenos: 'Escríbenos', iniciarSesion: 'Iniciar sesión', irAlPortal: 'Ir al portal', menu: 'Menú', catalogo: 'Catálogo', idioma: 'Idioma', cerrar: 'Cerrar menú' },
   hero: {
     brand: 'O R O \u00A0 D E \u00A0 T A M A R',
     est: 'EST. 2024',
@@ -18,6 +18,16 @@ export const es = {
   catalogo: {
     vacio: 'Próximamente — estamos preparando nuestro catálogo.',
     agregar: 'Agregar',
+  },
+  catalogoPage: {
+    titulo: 'Nuestro Catálogo',
+    subtitulo: 'Explora nuestra selección de dátiles premium, snacks artesanales y productos naturales del desierto de Baja California.',
+    buscar: 'Buscar producto…',
+    todos: 'Todos',
+    sinResultados: 'No encontramos productos con ese nombre.',
+    productos: 'productos',
+    volverInicio: 'Volver al inicio',
+    verTodo: 'Ver todo el catálogo',
   },
   producto: {
     volver: 'Volver al catálogo',
@@ -64,6 +74,8 @@ export const es = {
     waIntro: 'Hola! Me interesa hacer un pedido:',
     waCu: 'c/u',
     waNombre: 'Mi nombre: ',
+    crearCuenta: 'Crea tu cuenta en segundos para continuar',
+    soloMexico: 'Envíos solo dentro de México',
   },
   checkout: {
     titulo: 'Confirmar pedido',
@@ -72,6 +84,13 @@ export const es = {
     nombre: 'Nombre completo',
     telefono: 'Teléfono / WhatsApp',
     direccion: 'Dirección de entrega',
+    calle: 'Calle y número',
+    callePlaceholder: 'Av. Revolución 1234',
+    colonia: 'Colonia',
+    coloniaPlaceholder: 'Col. Centro',
+    ciudad: 'Ciudad',
+    estado: 'Estado',
+    codigoPostal: 'C.P.',
     direccionPlaceholder: 'Calle, número, colonia, ciudad',
     notas: 'Notas adicionales',
     notasPlaceholder: 'Instrucciones especiales, horario preferido, etc.',
@@ -97,7 +116,14 @@ export const es = {
     errorVacio: 'Tu carrito está vacío',
     errorComprobante: 'Sube el comprobante de pago',
     errorGeneral: 'Hubo un error al procesar tu pedido. Intenta de nuevo.',
+    errorCampos: 'Completa todos los campos obligatorios',
+    campoObligatorio: 'Este campo es obligatorio',
+    cpInvalido: 'Ingresa un código postal válido (5 dígitos)',
     cu: 'c/u',
+    loginMsg: 'Inicia sesión o crea tu cuenta para completar tu pedido. Solo toma unos segundos.',
+    loginBtn: 'Iniciar sesión / Crear cuenta',
+    loginNota: 'Tu carrito se conserva al iniciar sesión',
+    soloMexico: 'Por el momento solo realizamos envíos dentro de México',
   },
   misPedidos: {
     titulo: 'Mis pedidos',

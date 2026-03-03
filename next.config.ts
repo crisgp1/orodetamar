@@ -11,18 +11,7 @@ const nextConfig: NextConfig = {
     ],
   },
   async redirects() {
-    return [
-      {
-        source: '/catalogo',
-        destination: '/',
-        permanent: true,
-      },
-      {
-        source: '/catalogo/:path*',
-        destination: '/',
-        permanent: true,
-      },
-    ]
+    return []
   },
 };
 

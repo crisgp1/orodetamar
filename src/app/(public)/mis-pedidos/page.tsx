@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
-import { getDictionary, defaultLocale } from '../_dictionaries'
+import { getServerDictionary } from '../_dictionaries/server'
 import { obtenerMisPedidos } from '../checkout/actions'
 import { MisPedidosContent } from './mis-pedidos-content'
 
@@ -12,7 +12,7 @@ export default async function MisPedidosPage() {
   const { userId } = await auth()
   if (!userId) redirect('/')
 
-  const dictionary = getDictionary(defaultLocale)
+  const dictionary = await getServerDictionary()
   const pedidos = await obtenerMisPedidos()
 
   return (
