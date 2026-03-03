@@ -197,7 +197,7 @@ export function CarritoResumen({
 
             <button
               onClick={handleEnviar}
-              className="flex h-10 w-full items-center justify-center gap-2 border border-border text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="mt-3 flex h-10 w-full items-center justify-center gap-2 border border-border text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               <WhatsappLogo size={16} weight="bold" className="text-[#25D366]" />
               {t.carrito.oWhatsapp}
