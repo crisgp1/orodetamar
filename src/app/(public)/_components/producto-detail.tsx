@@ -305,13 +305,13 @@ function ProductoHero({
               {cantidadEnCarrito === 0 ? (
                 <button
                   onClick={onAgregar}
-                  className="flex h-12 flex-1 items-center justify-center gap-2 bg-foreground text-[11px] font-medium tracking-[0.2em] uppercase text-background transition-opacity duration-300 hover:opacity-85"
+                  className="flex h-12 w-full items-center justify-center gap-2 bg-foreground text-[11px] font-medium tracking-[0.2em] uppercase text-background transition-opacity duration-300 hover:opacity-85 sm:flex-1 sm:w-auto"
                 >
                   <ShoppingBag size={16} weight="bold" />
                   {t.producto.agregar}
                 </button>
               ) : (
-                <div className="flex h-12 flex-1 items-center justify-between bg-foreground px-4 text-background">
+                <div className="flex h-12 w-full items-center justify-between bg-foreground px-4 text-background sm:flex-1 sm:w-auto">
                   <span className="text-[10px] tracking-[0.15em] uppercase opacity-70">
                     {t.producto.enCarrito}
                   </span>
@@ -340,7 +340,7 @@ function ProductoHero({
                 href={`https://wa.me/52${whatsapp}?text=${waMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-12 items-center justify-center gap-2 border border-foreground/15 px-6 text-[11px] font-medium tracking-[0.15em] uppercase text-foreground transition-colors duration-300 hover:bg-foreground hover:text-background"
+                className="flex h-12 w-full items-center justify-center gap-2 border border-foreground/15 px-6 text-[11px] font-medium tracking-[0.15em] uppercase text-foreground transition-colors duration-300 hover:bg-foreground hover:text-background sm:w-auto"
               >
                 <WhatsappLogo size={16} weight="bold" />
                 {t.producto.consultar}
